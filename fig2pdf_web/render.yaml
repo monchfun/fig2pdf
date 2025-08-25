@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: fig2pdf-web
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python gradio_app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0

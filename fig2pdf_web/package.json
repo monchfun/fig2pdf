@@ -1,20 +1,17 @@
 {
-  "name": "fig2pdf_web",
+  "name": "fig2pdf-web",
   "version": "1.0.0",
-  "description": "Flask web application for fig2pdf",
-  "main": "app.py",
+  "description": "Figma to PDF color conversion web application",
+  "main": "gradio_app.py",
   "scripts": {
-    "build": "postcss ./static/src/input.css -o ./static/dist/output.css",
-    "watch": "postcss ./static/src/input.css -o ./static/dist/output.css --watch"
+    "start": "python gradio_app.py",
+    "dev": "python gradio_app.py"
   },
-  "keywords": [],
+  "keywords": ["figma", "pdf", "color-conversion", "gradio"],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.12",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.4.38",
-    "postcss-cli": "^11.0.0",
-    "tailwindcss": "^4.1.12"
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
   }
 }

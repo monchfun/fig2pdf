@@ -5,7 +5,7 @@ import shutil
 import os
 from os.path import abspath, dirname, join, basename
 
-def process_pdf_files(input_pdf_path, color_mapping_path, output_dir, tolerance=0.002):
+def process_pdf_files(input_pdf_path, color_mapping_path, output_dir, tolerance=0.002, convert_text_to_curves=False):
     logs = []
     success = False
     output_cmyk_pdf = None
@@ -115,7 +115,7 @@ def process_pdf_files(input_pdf_path, color_mapping_path, output_dir, tolerance=
     logs.append(f"Found Ghostscript at: {gs_command}")
     logs.append(f"Converting '{intermediate_cmyk_pdf}' to a modern print-ready PDF (preserving vectors)...")
 
-    # New arguments to disable color management and preserve raw CMYK values
+    # Ghostscript arguments - 添加文字转曲线选项
     gs_args = [
         gs_command,
         '-dBATCH',
@@ -123,8 +123,20 @@ def process_pdf_files(input_pdf_path, color_mapping_path, output_dir, tolerance=
         '-sDEVICE=pdfwrite',
         '-dUseCIEColor=false',  # Disable advanced color management
         f'-sOutputFile={final_print_pdf}',
-        intermediate_cmyk_pdf
     ]
+    
+    # 如果启用文字转曲线，添加相应参数
+    if convert_text_to_curves:
+        logs.append("启用文字转曲线功能...")
+        gs_args.extend([
+            '-dNoOutputFonts',    # 不输出字体
+            '-dConvertCMYKImagesToRGB=false',
+            '-dConvertImagesToIndexed=false',
+            '-dPreserveHalftoneInfo=true',
+            '-dPreserveOverprintSettings=true'
+        ])
+    
+    gs_args.append(intermediate_cmyk_pdf)
 
     try:
         process = subprocess.run(gs_args, capture_output=True, text=True, check=True)
@@ -154,7 +166,7 @@ def process_pdf_files(input_pdf_path, color_mapping_path, output_dir, tolerance=
 
 if __name__ == '__main__':
     # Example usage if run directly (for testing)
-    # This part will not be used by the Flask app
+    # This part will not be used by the web app
     import sys
     if len(sys.argv) != 3:
         print("Usage: python process_pdf.py <input_pdf_path> <color_mapping_path>")
