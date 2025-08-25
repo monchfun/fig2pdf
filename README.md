@@ -81,4 +81,34 @@
     python3 process_pdf.py
     ```
 
-4.  **获取成品**：脚本执行成功后，文件夹内会生成最终文件 `PPT_modern_print.pdf`。您可以将此文件直接交付给印刷服务商。
+4.  **获取成品**：脚本执行成功后，文件夹内会生成最终文件 `PPT_modern_print.pdf`。
+
+---
+
+## 6. Figma 插件设置
+
+本仓库包含一个 Figma 插件，用于辅助 PDF 导出流程。要设置和运行此插件，请遵循以下步骤：
+
+1.  **进入插件目录**：
+    ```bash
+    cd figma-plugin
+    ```
+
+2.  **安装依赖**：
+    ```bash
+    npm install
+    ```
+    这将安装插件所需的所有 Node.js 依赖项。
+
+3.  **构建插件 (如果需要)**：
+    如果插件有 TypeScript 源文件 (`.ts`)，你可能需要将其编译为 JavaScript (`.js`)。通常，`package.json` 中会定义一个构建脚本。请查阅 `figma-plugin/package.json` 中的 `scripts` 部分，例如：
+    ```bash
+    npm run build
+    ```
+    (请根据实际情况调整此命令)
+
+4.  **在 Figma 中加载插件**：
+    -   打开 Figma 桌面应用。
+    -   进入 "Plugins" > "Development" > "Import plugin from manifest..."。
+    -   选择 `figma-plugin` 目录下的 `manifest.json` 文件。
+    -   插件现在应该可以在 Figma 中运行了。

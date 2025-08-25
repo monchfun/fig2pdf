@@ -19,29 +19,7 @@ figma.ui.on('message', async (msg) => {
     const jsonString = JSON.stringify(jsonForScript, null, 2);
     figma.ui.postMessage({ type: 'download-json', data: jsonString });
 
-    // 2. Prepare and send the PDF file
-    const selection = figma.currentPage.selection;
-    if (selection.length === 0) {
-      figma.notify("Please select a frame or object to export as PDF.", { error: true });
-      return;
-    }
     
-    // We'll export the first selected node. For better results, users should select a single frame.
-    const exportNode = selection[0];
-    console.log('Attempting PDF export for node:', exportNode.name); // ADDED LOG
-    try {
-      const pdfData = await exportNode.exportAsync({ format: 'PDF' });
-      console.log('PDF data received. Size:', pdfData.byteLength); // ADDED LOG
-      if (pdfData.byteLength === 0) { // ADDED CHECK FOR EMPTY DATA
-        figma.notify("PDF export resulted in empty data. Is the selected frame empty or unexportable?", { error: true });
-        return;
-      }
-      figma.ui.postMessage({ type: 'download-pdf', data: pdfData });
-      console.log('Sent PDF data to UI.'); // ADDED LOG
-    } catch (e) {
-      figma.notify(`Error exporting PDF: ${(e as Error).message}`, { error: true });
-      console.error('PDF export failed in catch block:', e); // ADDED LOG
-    }
   }
 });
 
