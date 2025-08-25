@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 卸载旧的Gradio/FastAPI相关依赖，确保环境干净
+pip uninstall fastapi starlette uvicorn -y
+
 # 创建上传目录
 mkdir -p uploads
 
