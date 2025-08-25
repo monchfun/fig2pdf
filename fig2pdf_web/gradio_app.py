@@ -112,4 +112,9 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
     
     # 在Render上需要使用0.0.0.0来监听所有接口
-    demo.launch(server_name="0.0.0.0", server_port=port, share=False)
+    try:
+        demo.launch(server_name="0.0.0.0", server_port=port, share=False, show_error=True)
+    except Exception as e:
+        print(f"启动错误: {e}")
+        print("尝试使用prevent_thread_lock模式...")
+        demo.launch(server_name="0.0.0.0", server_port=port, share=False, show_error=True, prevent_thread_lock=True)
