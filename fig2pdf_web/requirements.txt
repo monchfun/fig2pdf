@@ -1,4 +1,4 @@
-gradio==4.36.1
 pikepdf>=8.0.0
 werkzeug>=2.0.0
-pydantic==2.10.6
+Flask
+gunicorn

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figma2PDF - PDF颜色处理工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+        }
+        h3 {
+            color: #0056b3;
+            text-align: center;
+        }
+        form {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        input[type="file"] {
+            display: block;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: calc(100% - 16px);
+        }
+        input[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            white-space: pre-wrap; /* Preserve newlines */
+        }
+        .download-links a {
+            display: block;
+            margin-top: 10px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .download-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Figma2PDF</h1>
+        <h3>专业的PDF颜色处理工具</h3>
+        <p>上传Figma导出的PDF文件和颜色映射JSON文件，进行专业的CMYK颜色转换和印刷优化。</p>
+
+        <form action="/" method="post" enctype="multipart/form-data">
+            <label for="pdf_file">上传PDF文件:</label>
+            <input type="file" name="pdf_file" id="pdf_file" accept=".pdf" required>
+
+            <label for="json_file">上传颜色映射JSON:</label>
+            <input type="file" name="json_file" id="json_file" accept=".json" required>
+
+            <input type="submit" value="🚀 开始处理PDF">
+        </form>
+
+        {% if message %}
+            <div class="message">
+                <p>{{ message }}</p>
+            </div>
+        {% endif %}
+
+        {% if output_files %}
+            <div class="download-links">
+                <h4>下载文件:</h4>
+                {% for file in output_files %}
+                    <a href="{{ url_for('download_file', upload_id=upload_id, filename=file) }}" download>{{ file }}</a>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
