@@ -7,48 +7,7 @@ from process_pdf import process_pdf_files
 from werkzeug.utils import secure_filename
 
 def process_files(pdf_file, json_file):
-    """处理上传的PDF和JSON文件"""
-    try:
-        # 创建唯一的上传目录
-        upload_id = str(uuid.uuid4())
-        upload_dir = os.path.join('uploads', upload_id)
-        os.makedirs(upload_dir, exist_ok=True)
-        
-        # 保存文件
-        pdf_filename = secure_filename(os.path.basename(pdf_file))
-        json_filename = secure_filename(os.path.basename(json_file))
-        
-        pdf_path = os.path.join(upload_dir, pdf_filename)
-        json_path = os.path.join(upload_dir, json_filename)
-        
-        # 保存文件内容
-        with open(pdf_path, 'wb') as f:
-            with open(pdf_file, 'rb') as src:
-                f.write(src.read())
-        with open(json_path, 'wb') as f:
-            with open(json_file, 'rb') as src:
-                f.write(src.read())
-        
-        # 处理PDF文件 - 添加文字转曲线参数
-        processing_result = process_pdf_files(pdf_path, json_path, upload_dir, convert_text_to_curves=True)
-        
-        if processing_result["success"]:
-            # 返回文件路径供Gradio文件组件使用
-            result_files = []
-            result_message = "✅ 处理成功！\n\n" + processing_result['message']
-            
-            if processing_result["output_cmyk_pdf"]:
-                result_files.append(processing_result["output_cmyk_pdf"])
-            
-            if processing_result["output_final_pdf"]:
-                result_files.append(processing_result["output_final_pdf"])
-            
-            return result_message, result_files
-        else:
-            return f"❌ 处理失败！\n\n{processing_result['message']}", None
-            
-    except Exception as e:
-        return f"❌ 发生错误！\n\n{str(e)}", None
+    return "Hello from dummy process_files!"
 
 def create_gradio_interface():
     """创建Gradio界面"""
