@@ -120,12 +120,28 @@
     if (msg.type === 'download-json') {
       downloadFile(msg.data, 'color_mapping.json', 'application/json');
     }
-
-    
   };
 
-  function rgbToHex(rgb) {
-    return ((1 << 24) + (rgb.r << 16) + (rgb.g << 8) + rgb.b).toString(16).slice(1).toUpperCase();
+  function rgbToHex(r, g, b) {
+    return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+  }
+
+  function rgbToCmyk(r, g, b) {
+    let c = 1 - (r / 255);
+    let m = 1 - (g / 255);
+    let y = 1 - (b / 255);
+    let k = Math.min(c, m, y);
+
+    if (k === 1) {
+      return { c: 0, m: 0, y: 0, k: 100 };
+    }
+
+    c = Math.round(((c - k) / (1 - k)) * 100);
+    m = Math.round(((m - k) / (1 - k)) * 100);
+    y = Math.round(((y - k) / (1 - k)) * 100);
+    k = Math.round(k * 100);
+
+    return { c, m, y, k };
   }
 
   function updateColorList(colors) {
@@ -140,27 +156,28 @@
 
     colors.forEach(color => {
       const rgb255 = {
-        r: Math.round(color.r * 255),
-        g: Math.round(color.g * 255),
-        b: Math.round(color.b * 255)
+        r: Math.round(color.rgb.r * 255),
+        g: Math.round(color.rgb.g * 255),
+        b: Math.round(color.rgb.b * 255)
       };
+      const cmyk = rgbToCmyk(rgb255.r, rgb255.g, rgb255.b);
 
       const item = document.createElement('div');
       item.className = 'color-item';
-      item.dataset.rgb = JSON.stringify(rgb255);
+      item.dataset.rgb = JSON.stringify(color.rgb);
 
       item.innerHTML = `
         <div class="color-swatch" style="background-color: rgb(${rgb255.r}, ${rgb255.g}, ${rgb255.b})"></div>
-        <span class="hex-value">#${rgbToHex(rgb255)}</span>
+        <span class="hex-value">#${rgbToHex(rgb255.r, rgb255.g, rgb255.b)}</span>
         <div class="cmyk-inputs">
           <label>C</label>
           <label>M</label>
           <label>Y</label>
           <label>K</label>
-          <input type="number" class="cmyk-input" value="0" min="0" max="100">
-          <input type="number" class="cmyk-input" value="0" min="0" max="100">
-          <input type="number" class="cmyk-input" value="0" min="0" max="100">
-          <input type="number" class="cmyk-input" value="0" min="0" max="100">
+          <input type="number" class="cmyk-input" value="${cmyk.c}" min="0" max="100">
+          <input type="number" class="cmyk-input" value="${cmyk.m}" min="0" max="100">
+          <input type="number" class="cmyk-input" value="${cmyk.y}" min="0" max="100">
+          <input type="number" class="cmyk-input" value="${cmyk.k}" min="0" max="100">
         </div>
       `;
       colorList.appendChild(item);
@@ -172,7 +189,7 @@
     const mappings = [];
     const items = document.querySelectorAll('.color-item');
     items.forEach(item => {
-      const rgb = JSON.parse(item.dataset.rgb);
+      const rgb01 = JSON.parse(item.dataset.rgb);
       const inputs = item.querySelectorAll('.cmyk-input');
       const cmyk = {
         c: parseInt(inputs[0].value) || 0,
@@ -180,8 +197,8 @@
         y: parseInt(inputs[2].value) || 0,
         k: parseInt(inputs[3].value) || 0,
       };
-      mappings.push({ 
-        rgb_255: [rgb.r, rgb.g, rgb.b],
+      mappings.push({
+        rgb_255: [Math.round(rgb01.r * 255), Math.round(rgb01.g * 255), Math.round(rgb01.b * 255)],
         cmyk_100: [cmyk.c, cmyk.m, cmyk.y, cmyk.k]
       });
     });
@@ -201,5 +218,4 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
   }
-
 </script>

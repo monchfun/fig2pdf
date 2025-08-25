@@ -1,0 +1,20 @@
+{
+  "name": "fig2pdf_web",
+  "version": "1.0.0",
+  "description": "Flask web application for fig2pdf",
+  "main": "app.py",
+  "scripts": {
+    "build": "postcss ./static/src/input.css -o ./static/dist/output.css",
+    "watch": "postcss ./static/src/input.css -o ./static/dist/output.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.12",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.4.38",
+    "postcss-cli": "^11.0.0",
+    "tailwindcss": "^4.1.12"
+  }
+}
