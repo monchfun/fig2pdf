@@ -68,12 +68,14 @@ def create_gradio_interface():
                 pdf_input = gr.File(
                     label="上传PDF文件",
                     file_types=[".pdf"],
-                    file_count="single"
+                    file_count="single",
+                    type="filepath"
                 )
                 json_input = gr.File(
                     label="上传颜色映射JSON",
                     file_types=[".json"],
-                    file_count="single"
+                    file_count="single",
+                    type="filepath"
                 )
                 
                 process_btn = gr.Button(
