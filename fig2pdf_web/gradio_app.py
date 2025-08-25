@@ -65,18 +65,18 @@ def create_gradio_interface():
         
         with gr.Row():
             with gr.Column():
-                pdf_input = gr.File(
-                    label="上传PDF文件",
-                    file_types=[".pdf"],
-                    file_count="single",
-                    type="filepath"
-                )
-                json_input = gr.File(
-                    label="上传颜色映射JSON",
-                    file_types=[".json"],
-                    file_count="single",
-                    type="filepath"
-                )
+                # pdf_input = gr.File(
+                #     label="上传PDF文件",
+                #     file_types=[".pdf"],
+                #     file_count="single",
+                #     type="filepath"
+                # )
+                # json_input = gr.File(
+                #     label="上传颜色映射JSON",
+                #     file_types=[".json"],
+                #     file_count="single",
+                #     type="filepath"
+                # )
                 
                 process_btn = gr.Button(
                     "🚀 开始处理PDF",
@@ -89,16 +89,16 @@ def create_gradio_interface():
                     value="等待处理文件...",
                     lines=10
                 )
-                output_files = gr.Files(
-                    label="下载文件",
-                    file_count="multiple"
-                )
+                # output_files = gr.Files(
+                #     label="下载文件",
+                #     file_count="multiple"
+                # )
         
         # 处理逻辑
         process_btn.click(
             fn=process_files,
-            inputs=[pdf_input, json_input],
-            outputs=[output_text, output_files]
+            inputs=[], # Removed inputs
+            outputs=[output_text] # Removed output_files
         )
     
     return demo
@@ -115,8 +115,8 @@ if __name__ == "__main__":
     
     # 在Render上需要使用0.0.0.0来监听所有接口
     try:
-        demo.launch(server_name="0.0.0.0", server_port=port, share=True, show_error=True)
+        demo.launch(server_name="0.0.0.0", server_port=port, share=False, show_error=True)
     except Exception as e:
         print(f"启动错误: {e}")
         print("尝试使用prevent_thread_lock模式...")
-        demo.launch(server_name="0.0.0.0", server_port=port, share=True, show_error=True, prevent_thread_lock=True)
+        demo.launch(server_name="0.0.0.0", server_port=port, share=False, show_error=True, prevent_thread_lock=True)
