@@ -1,0 +1,203 @@
+<!-- ui.html -->
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 16px;
+    background-color: #f7f7f7;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  h3 {
+    margin: 0 0 8px 0;
+  }
+
+  #color-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid #e5e5e5;
+    background-color: #fff;
+    border-radius: 4px;
+    padding: 8px;
+  }
+
+  .color-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+  }
+  .color-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  .color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .cmyk-inputs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    align-items: center;
+  }
+
+  .cmyk-inputs label {
+    font-size: 11px;
+    text-align: center;
+    color: #555;
+  }
+
+  .cmyk-inputs input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 6px;
+    text-align: center;
+    font-size: 12px;
+  }
+
+  #export-button {
+    margin-top: 16px;
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    background-color: #0D99FF;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #export-button:hover {
+    background-color: #007BE5;
+  }
+  #export-button:disabled {
+    background-color: #B3B3B3;
+    cursor: not-allowed;
+  }
+
+  .placeholder {
+    color: #888;
+    text-align: center;
+    padding: 20px;
+  }
+
+</style>
+
+<div id="app">
+  <h3>Color Mapper</h3>
+  <div id="color-list">
+    <div class="placeholder">Select an object on the canvas to see its colors.</div>
+  </div>
+  <button id="export-button" disabled>Export PDF & JSON</button>
+</div>
+
+<script>
+  const colorList = document.getElementById('color-list');
+  const exportButton = document.getElementById('export-button');
+
+  // Listen for messages from the plugin's main code
+  window.onmessage = async (event) => {
+    const msg = event.data.pluginMessage;
+
+    if (msg.type === 'colors-found') {
+      updateColorList(msg.colors);
+    }
+
+    if (msg.type === 'download-json') {
+      downloadFile(msg.data, 'color_mapping.json', 'application/json');
+    }
+
+    if (msg.type === 'download-pdf') {
+      const blob = new Blob([msg.data], { type: 'application/pdf' });
+      downloadFile(blob, 'export.pdf', 'application/pdf');
+    }
+  };
+
+  function updateColorList(colors) {
+    if (colors.length === 0) {
+      colorList.innerHTML = '<div class="placeholder">No solid colors found in selection.</div>';
+      exportButton.disabled = true;
+      return;
+    }
+
+    colorList.innerHTML = ''; // Clear list
+    exportButton.disabled = false;
+
+    colors.forEach(color => {
+      const rgb255 = {
+        r: Math.round(color.r * 255),
+        g: Math.round(color.g * 255),
+        b: Math.round(color.b * 255)
+      };
+
+      const item = document.createElement('div');
+      item.className = 'color-item';
+      item.dataset.rgb = JSON.stringify(rgb255);
+
+      item.innerHTML = `
+        <div class="color-swatch" style="background-color: rgb(${rgb255.r}, ${rgb255.g}, ${rgb255.b})"></div>
+        <div class="cmyk-inputs">
+          <label>C</label>
+          <label>M</label>
+          <label>Y</label>
+          <label>K</label>
+          <input type="number" class="cmyk-input" value="0" min="0" max="100">
+          <input type="number" class="cmyk-input" value="0" min="0" max="100">
+          <input type="number" class="cmyk-input" value="0" min="0" max="100">
+          <input type="number" class="cmyk-input" value="0" min="0" max="100">
+        </div>
+      `;
+      colorList.appendChild(item);
+    });
+  }
+
+  // Handle export button click
+  exportButton.onclick = () => {
+    const mappings = [];
+    const items = document.querySelectorAll('.color-item');
+    items.forEach(item => {
+      const rgb = JSON.parse(item.dataset.rgb);
+      const inputs = item.querySelectorAll('.cmyk-input');
+      const cmyk = {
+        c: parseInt(inputs[0].value) || 0,
+        m: parseInt(inputs[1].value) || 0,
+        y: parseInt(inputs[2].value) || 0,
+        k: parseInt(inputs[3].value) || 0,
+      };
+      mappings.push({ 
+        rgb_255: [rgb.r, rgb.g, rgb.b],
+        cmyk_100: [cmyk.c, cmyk.m, cmyk.y, cmyk.k]
+      });
+    });
+
+    parent.postMessage({ pluginMessage: { type: 'export-clicked', mappings: mappings } }, '*');
+  };
+
+  // Helper to trigger file downloads
+  function downloadFile(data, filename, mimeType) {
+      const blob = (data instanceof Blob) ? data : new Blob([data], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  }
+
+</script>
