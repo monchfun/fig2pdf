@@ -43,16 +43,36 @@
 
 ```
 /fig2pdf/
-├── process_pdf.py          # 核心执行脚本
-├── color_mapping.json      # 颜色映射配置文件
-├── PPT.pdf                 # 【输入】您的原始PDF文件
-├── PPT_cmyk.pdf            # 【中间】仅替换了颜色的临时文件
-└── PPT_modern_print.pdf    # 【输出】最终的印刷文件
+├── fig2pdf_web/
+│   ├── app.py              # Web 应用程序主文件
+│   ├── process_pdf.py      # 核心 PDF 处理脚本
+│   ├── color_mapping.json  # 颜色映射配置文件示例 (Web 应用使用上传的文件)
+│   ├── templates/          # HTML 模板文件
+│   └── static/             # 静态文件 (CSS, JS 等)
+├── figma-plugin/           # Figma 插件目录
+├── README.md               # 项目说明
+└── PROJECT_LOG.md          # 项目日志
 ```
 
 ---
 
 ## 5. 使用方式
+
+### 方式一：Web 应用（推荐）
+
+1.  **启动 Web 应用**：
+    ```bash
+    cd fig2pdf_web
+    python3 app.py
+    ```
+
+2.  **访问应用**：在浏览器中打开 `http://localhost:5000`
+
+3.  **上传文件**：同时上传从 Figma 导出的 PDF 文件和对应的 `color_mapping.json` 文件
+
+4.  **下载结果**：处理完成后下载转换后的印刷级 PDF 文件
+
+### 方式二：命令行脚本
 
 1.  **放置文件**：将您从 Figma 导出的 PDF 文件放入此文件夹，并将其重命名为 `PPT.pdf`（或者在 `process_pdf.py` 脚本中修改 `INPUT_PDF` 变量的值）。
 
