@@ -54,8 +54,8 @@
                      :class="{'active': currentStep === 2, 'completed': currentStep > 2}">
                     步骤 2: 配置颜色映射
                 </div>
-                <div class="step-indicator px-4 py-2 rounded-full text-sm font-medium" 
-                     :class="{'active': currentStep === 3}">
+                <div class="step-indicator px-4 py-2 rounded-full text-sm font-sm font-medium" 
+                     :class="{'active': currentStep === 3, 'completed': currentStep > 3}">
                     步骤 3: 处理与下载
                 </div>
             </div>
@@ -237,14 +237,22 @@
                     <p class="mt-2 text-sm text-gray-600">正在处理PDF文件...</p>
                 </div>
 
-                <div x-show="downloadUrl" class="text-center">
-                    <a :href="downloadUrl" 
+                <div class="text-center space-y-2">
+                    <a x-show="cmykDownloadUrl" :href="cmykDownloadUrl" 
+                       download
+                       class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                        </svg>
+                        下载CMYK转换PDF
+                    </a>
+                    <a x-show="finalDownloadUrl" :href="finalDownloadUrl" 
                        download
                        class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
                         </svg>
-                        下载处理后的PDF
+                        下载最终处理PDF
                     </a>
                 </div>
             </div>
@@ -257,6 +265,59 @@
                 <button @click="resetProcess()" 
                         class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
                     重新开始
+                </button>
+            </div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6" x-data="{ history: [] }">
+            <h2 class="text-xl font-semibold mb-4">历史记录</h2>
+            
+            <div x-show="history.length === 0" class="text-center text-gray-500">
+                <p>暂无历史记录。</p>
+            </div>
+
+            <div x-show="history.length > 0" class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">时间</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">原始PDF</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CMYK PDF</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">最终PDF</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">映射JSON</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-for="record in history" :key="record.upload_id">
+                            <tr>
+                                <td class="px-4 py-2 text-sm" x-text="record.timestamp"></td>
+                                <td class="px-4 py-2 text-sm">
+                                    <a x-show="record.original_pdf" :href="`/download/${record.upload_id}/${record.original_pdf}`" download class="text-blue-600 hover:underline" x-text="record.original_pdf"></a>
+                                    <span x-show="!record.original_pdf" class="text-gray-400">无</span>
+                                </td>
+                                <td class="px-4 py-2 text-sm">
+                                    <a x-show="record.cmyk_pdf" :href="`/download/${record.upload_id}/${record.cmyk_pdf}`" download class="text-blue-600 hover:underline" x-text="record.cmyk_pdf"></a>
+                                    <span x-show="!record.cmyk_pdf" class="text-gray-400">无</span>
+                                </td>
+                                <td class="px-4 py-2 text-sm">
+                                    <a x-show="record.final_pdf" :href="`/download/${record.upload_id}/${record.final_pdf}`" download class="text-blue-600 hover:underline" x-text="record.final_pdf"></a>
+                                    <span x-show="!record.final_pdf" class="text-gray-400">无</span>
+                                </td>
+                                <td class="px-4 py-2 text-sm">
+                                    <a x-show="record.json_mapping" :href="`/download/${record.upload_id}/${record.json_mapping}`" download class="text-blue-600 hover:underline" x-text="record.json_mapping"></a>
+                                    <span x-show="!record.json_mapping" class="text-gray-400">无</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-6 flex justify-end"> <!-- Changed to justify-end -->
+                <button @click="clearHistory()" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                    清空历史记录
                 </button>
             </div>
         </div>
@@ -274,11 +335,15 @@
                 jsonText: '',
                 convertTextToCurves: false,
                 processing: false,
-                downloadUrl: '',
+                downloadUrl: '', // Keep for now, might be removed later
                 uploadId: '',
+                cmykDownloadUrl: '', // New
+                finalDownloadUrl: '', // New
+                history: [], // Re-add history data property
 
                 init() {
                     this.loadDefaultMapping();
+                    this.fetchHistory(); // Fetch history on init
                 },
 
                 async loadDefaultMapping() {
@@ -421,8 +486,11 @@
                 },
 
                 nextStep() {
-                    if (this.currentStep < 3) {
+                    if (this.currentStep < 4) { // Changed from 3 to 4
                         this.currentStep++;
+                        if (this.currentStep === 4) {
+                            this.fetchHistory(); // Fetch history when navigating to step 4
+                        }
                     }
                 },
 
@@ -453,9 +521,24 @@
                         const result = await response.json();
                         
                         if (result.success) {
-                            this.downloadUrl = `/download/${result.upload_id}/${result.filename}`;
+                            this.uploadId = result.upload_id; // Ensure uploadId is set
+                            if (result.cmyk_pdf_filename) {
+                                this.cmykDownloadUrl = `/download/${result.upload_id}/${result.cmyk_pdf_filename}`;
+                            } else {
+                                this.cmykDownloadUrl = ''; // Clear if not available
+                            }
+                            if (result.final_pdf_filename) {
+                                this.finalDownloadUrl = `/download/${result.upload_id}/${result.final_pdf_filename}`;
+                            } else {
+                                this.finalDownloadUrl = ''; // Clear if not available
+                            }
+                            // Clear old downloadUrl if it's still used somewhere
+                            this.downloadUrl = ''; 
                         } else {
                             alert('处理失败: ' + result.message);
+                            this.cmykDownloadUrl = ''; // Clear on failure
+                            this.finalDownloadUrl = ''; // Clear on failure
+                            this.downloadUrl = ''; // Clear on failure
                         }
                     } catch (error) {
                         alert('处理失败: ' + error.message);
@@ -474,6 +557,33 @@
                     this.uploadId = '';
                     document.getElementById('pdfFile').value = '';
                     this.loadDefaultMapping();
+                },
+
+                async fetchHistory() { // New method
+                    try {
+                        const response = await fetch('/api/history');
+                        const data = await response.json();
+                        this.history = data;
+                    } catch (error) {
+                        console.error('获取历史记录失败:', error);
+                    }
+                },
+
+                async clearHistory() {
+                    if (confirm('确定要清空所有历史记录吗？此操作不可撤销。')) {
+                        try {
+                            const response = await fetch('/api/clear-history', { method: 'POST' });
+                            const result = await response.json();
+                            if (result.success) {
+                                alert(result.message);
+                                this.fetchHistory(); // Re-fetch history after clearing
+                            } else {
+                                alert('清空失败: ' + result.message);
+                            }
+                        } catch (error) {
+                            alert('清空失败: ' + error.message);
+                        }
+                    }
                 }
             }
         }

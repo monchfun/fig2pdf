@@ -1,5 +1,7 @@
 import os
 import json
+import datetime
+import shutil # New import
 from flask import Flask, request, render_template, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
 from process_pdf import process_pdf_files
@@ -53,18 +55,20 @@ def process_files():
             processing_result = process_pdf_files(pdf_path, json_path, upload_dir, convert_text_to_curves=convert_text_to_curves)
 
             if processing_result["success"]:
-                # Determine which file to return
-                final_filename = None
-                if processing_result["output_final_pdf"]:
-                    final_filename = os.path.basename(processing_result["output_final_pdf"])
-                elif processing_result["output_cmyk_pdf"]:
-                    final_filename = os.path.basename(processing_result["output_cmyk_pdf"])
+                cmyk_pdf_filename = None
+                if processing_result["output_cmyk_pdf"]:
+                    cmyk_pdf_filename = os.path.basename(processing_result["output_cmyk_pdf"])
                 
+                final_pdf_filename = None
+                if processing_result["output_final_pdf"]:
+                    final_pdf_filename = os.path.basename(processing_result["output_final_pdf"])
+
                 return jsonify({
                     "success": True,
                     "message": processing_result["message"],
-                    "filename": final_filename,
-                    "upload_id": upload_id
+                    "upload_id": upload_id,
+                    "cmyk_pdf_filename": cmyk_pdf_filename,
+                    "final_pdf_filename": final_pdf_filename
                 })
             else:
                 return jsonify({
@@ -145,6 +149,81 @@ def upload_pdf():
             "success": False,
             "message": f"上传失败: {str(e)}"
         })
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    """获取处理历史记录"""
+    history_records = []
+    uploads_dir = app.config['UPLOAD_FOLDER']
+
+    if not os.path.exists(uploads_dir):
+        return jsonify([])
+
+    # Get all upload_id directories
+    upload_ids = [d for d in os.listdir(uploads_dir) if os.path.isdir(os.path.join(uploads_dir, d))]
+    
+    for upload_id in upload_ids:
+        upload_dir_path = os.path.join(uploads_dir, upload_id)
+        
+        # Get timestamp (creation time of the directory)
+        try:
+            timestamp = os.path.getctime(upload_dir_path)
+            dt_object = datetime.datetime.fromtimestamp(timestamp)
+            formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            formatted_time = "未知时间" # Fallback if timestamp cannot be retrieved
+
+        record = {
+            "upload_id": upload_id,
+            "timestamp": formatted_time,
+            "original_pdf": None,
+            "json_mapping": None,
+            "cmyk_pdf": None,
+            "final_pdf": None
+        }
+
+        # Iterate through files in the upload_id directory
+        for filename in os.listdir(upload_dir_path):
+            file_path = os.path.join(upload_dir_path, filename)
+            if os.path.isfile(file_path):
+                if filename.endswith('_cmyk.pdf'):
+                    record["cmyk_pdf"] = filename
+                elif filename.endswith('_modern_print.pdf'):
+                    record["final_pdf"] = filename
+                elif filename.endswith('.json'):
+                    record["json_mapping"] = filename
+                elif filename.lower().endswith('.pdf') and not (filename.endswith('_cmyk.pdf') or filename.endswith('_modern_print.pdf')):
+                    # Assuming any other PDF is the original input PDF
+                    record["original_pdf"] = filename
+        
+        # Only add records that have at least one processed file (CMYK or Final)
+        if record["cmyk_pdf"] or record["final_pdf"]:
+            history_records.append(record)
+
+    # Sort by timestamp, newest first
+    history_records.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    return jsonify(history_records)
+
+@app.route('/api/clear-history', methods=['POST'])
+def clear_history():
+    """清空所有上传和处理的历史记录"""
+    uploads_dir = app.config['UPLOAD_FOLDER']
+    try:
+        # Remove all subdirectories and files within the uploads directory
+        for item in os.listdir(uploads_dir):
+            item_path = os.path.join(uploads_dir, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+            elif os.path.isfile(item_path):
+                os.remove(item_path)
+        
+        # Recreate the uploads directory if it was removed (shutil.rmtree on uploads_dir itself)
+        os.makedirs(uploads_dir, exist_ok=True)
+
+        return jsonify({"success": True, "message": "历史记录已清空"})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"清空历史记录失败: {str(e)}"})
 
 if __name__ == '__main__':
     # Get the port from environment variable or use a default
