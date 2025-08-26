@@ -104,16 +104,6 @@ def save_color_mapping():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/original-color-mapping', methods=['GET'])
-def get_original_color_mapping():
-    """获取原始默认颜色映射"""
-    try:
-        with open('initial_default_color_mapping.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 @app.route('/api/upload-pdf', methods=['POST'])
 def upload_pdf():
     """上传PDF文件"""

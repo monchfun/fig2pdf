@@ -3,106 +3,480 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Figma2PDF - PDF颜色处理工具</title>
+    <title>PDF颜色转换工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
+        .step-indicator {
+            transition: all 0.3s ease;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #0056b3;
-            text-align: center;
-        }
-        h3 {
-            color: #0056b3;
-            text-align: center;
-        }
-        form {
-            margin-top: 20px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-        input[type="file"] {
-            display: block;
-            margin-bottom: 10px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: calc(100% - 16px);
-        }
-        input[type="submit"] {
-            background-color: #007bff;
+        .step-indicator.active {
+            background-color: #3b82f6;
             color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
         }
-        input[type="submit"]:hover {
-            background-color: #0056b3;
+        .step-indicator.completed {
+            background-color: #10b981;
+            color: white;
         }
-        .message {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            background-color: #e9ecef;
-            border: 1px solid #ced4da;
-            white-space: pre-wrap; /* Preserve newlines */
+        .step-content {
+            display: none;
         }
-        .download-links a {
+        .step-content.active {
             display: block;
-            margin-top: 10px;
-            color: #007bff;
-            text-decoration: none;
+            animation: fadeIn 0.3s ease;
         }
-        .download-links a:hover {
-            text-decoration: underline;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        .json-editor {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>🎨 Figma2PDF</h1>
-        <h3>专业的PDF颜色处理工具</h3>
-        <p>上传Figma导出的PDF文件和颜色映射JSON文件，进行专业的CMYK颜色转换和印刷优化。</p>
-
-        <form action="/" method="post" enctype="multipart/form-data">
-            <label for="pdf_file">上传PDF文件:</label>
-            <input type="file" name="pdf_file" id="pdf_file" accept=".pdf" required>
-
-            <label for="json_file">上传颜色映射JSON:</label>
-            <input type="file" name="json_file" id="json_file" accept=".json" required>
-
-            <input type="submit" value="🚀 开始处理PDF">
-        </form>
-
-        {% if message %}
-            <div class="message">
-                <p>{{ message }}</p>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl" x-data="pdfProcessor()">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">PDF颜色转换工具</h1>
+        
+        <!-- 步骤指示器 -->
+        <div class="flex justify-center mb-8">
+            <div class="flex space-x-4">
+                <div class="step-indicator px-4 py-2 rounded-full text-sm font-medium" 
+                     :class="{'active': currentStep === 1, 'completed': currentStep > 1}">
+                    步骤 1: 上传PDF
+                </div>
+                <div class="step-indicator px-4 py-2 rounded-full text-sm font-medium" 
+                     :class="{'active': currentStep === 2, 'completed': currentStep > 2}">
+                    步骤 2: 配置颜色映射
+                </div>
+                <div class="step-indicator px-4 py-2 rounded-full text-sm font-medium" 
+                     :class="{'active': currentStep === 3}">
+                    步骤 3: 处理与下载
+                </div>
             </div>
-        {% endif %}
+        </div>
 
-        {% if output_files %}
-            <div class="download-links">
-                <h4>下载文件:</h4>
-                {% for file in output_files %}
-                    <a href="{{ url_for('download_file', upload_id=upload_id, filename=file) }}" download>{{ file }}</a>
-                {% endfor %}
+        <!-- 步骤1: 上传PDF -->
+        <div class="step-content bg-white rounded-lg shadow-md p-6 mb-6" :class="{'active': currentStep === 1}">
+            <h2 class="text-xl font-semibold mb-4">步骤1: 上传PDF文件</h2>
+            
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <input type="file" 
+                       id="pdfFile" 
+                       accept=".pdf" 
+                       class="hidden" 
+                       @change="handlePdfUpload">
+                
+                <div class="space-y-4">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    
+                    <div>
+                        <button type="button" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                                onclick="document.getElementById('pdfFile').click()">
+                            选择PDF文件
+                        </button>
+                        <p class="mt-2 text-sm text-gray-500" x-text="pdfFileName || '或拖拽文件到此处'"></p>
+                    </div>
+                </div>
             </div>
-        {% endif %}
+
+            <div x-show="uploadProgress > 0" class="mt-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                    <span>上传进度</span>
+                    <span x-text="uploadProgress + '%'"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="progress-bar bg-blue-600 h-2 rounded-full" :style="`width: ${uploadProgress}%`"></div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button @click="nextStep()" 
+                        :disabled="!pdfUploaded"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    下一步
+                </button>
+            </div>
+        </div>
+
+        <!-- 步骤2: 配置颜色映射 -->
+        <div class="step-content bg-white rounded-lg shadow-md p-6 mb-6" :class="{'active': currentStep === 2}">
+            <h2 class="text-xl font-semibold mb-4">步骤2: 配置颜色映射</h2>
+            
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-medium">颜色映射配置</h3>
+                    <div class="space-x-2">
+                        <button @click="resetToOriginalDefault()" 
+                                class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                            重置为默认
+                        </button>
+                        <button @click="saveMapping()" 
+                                class="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                            保存为默认
+                        </button>
+                        <button @click="addNewColor()"
+                                class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
+                            添加颜色
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        上传自定义JSON文件（可选）
+                    </label>
+                    <input type="file" 
+                           accept=".json" 
+                           @change="handleJsonUpload"
+                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <!-- 表格视图 -->
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">映射表格</h4>
+                        <div class="border rounded-lg overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">颜色名称</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">RGB</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CMYK</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="(mapping, index) in colorMappings.mappings" :key="index">
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm flex items-center">
+                                                <span class="inline-block w-5 h-5 rounded-full border border-gray-300 mr-2"
+                                                      :style="`background-color: rgb(${mapping.rgb_255[0]}, ${mapping.rgb_255[1]}, ${mapping.rgb_255[2]})`"></span>
+                                                <input type="text" 
+                                                       x-model="mapping.name" 
+                                                       @input="syncJsonFromTable()"
+                                                       class="w-full border-none outline-none">
+                                            </td>
+                                            <td class="px-4 py-2 text-sm">
+                                                <input type="text" 
+                                                       :value="mapping.rgb_255.join(', ')"
+                                                       @input="updateRgb(index, $event.target.value)"
+                                                       class="w-full border-none outline-none">
+                                            </td>
+                                            <td class="px-4 py-2 text-sm">
+                                                <input type="text" 
+                                                       :value="mapping.cmyk_100.join(', ')"
+                                                       @input="updateCmyk(index, $event.target.value)"
+                                                       class="w-full border-none outline-none">
+                                            </td>
+                                            <td class="px-4 py-2 text-sm">
+                                                <button @click="deleteColor(index)"
+                                                        class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">
+                                                    删除
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- JSON视图 -->
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">JSON配置</h4>
+                        <textarea x-model="jsonText" 
+                                  @input="syncTableFromJson()"
+                                  class="json-editor w-full h-64 p-3 border rounded-lg resize-none"
+                                  placeholder="JSON配置将在这里显示..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-between">
+                <button @click="previousStep()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                    上一步
+                </button>
+                <button @click="nextStep()" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    下一步
+                </button>
+            </div>
+        </div>
+
+        <!-- 步骤3: 处理与下载 -->
+        <div class="step-content bg-white rounded-lg shadow-md p-6 mb-6" :class="{'active': currentStep === 3}">
+            <h2 class="text-xl font-semibold mb-4">步骤3: 处理与下载</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="flex items-center">
+                        <input type="checkbox" x-model="convertTextToCurves" class="rounded border-gray-300">
+                        <span class="ml-2 text-sm text-gray-700">将文字转为曲线（适用于印刷）</span>
+                    </label>
+                </div>
+
+                <button @click="processPdf()" 
+                        :disabled="processing"
+                        class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span x-show="!processing">开始处理</span>
+                    <span x-show="processing">处理中...</span>
+                </button>
+
+                <div x-show="processing" class="text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p class="mt-2 text-sm text-gray-600">正在处理PDF文件...</p>
+                </div>
+
+                <div x-show="downloadUrl" class="text-center">
+                    <a :href="downloadUrl" 
+                       download
+                       class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                        </svg>
+                        下载处理后的PDF
+                    </a>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-between">
+                <button @click="previousStep()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                    上一步
+                </button>
+                <button @click="resetProcess()" 
+                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                    重新开始
+                </button>
+            </div>
+        </div>
     </div>
+
+    <script>
+        function pdfProcessor() {
+            return {
+                currentStep: 1,
+                pdfFile: null,
+                pdfFileName: '',
+                pdfUploaded: false,
+                uploadProgress: 0,
+                colorMappings: { mappings: [] },
+                jsonText: '',
+                convertTextToCurves: false,
+                processing: false,
+                downloadUrl: '',
+                uploadId: '',
+
+                init() {
+                    this.loadDefaultMapping();
+                },
+
+                async loadDefaultMapping() {
+                    try {
+                        const response = await fetch('/api/color-mapping');
+                        const data = await response.json();
+                        this.colorMappings = data;
+                        this.jsonText = JSON.stringify(data, null, 2);
+                    } catch (error) {
+                        console.error('加载默认映射失败:', error);
+                    }
+                },
+
+                async resetToOriginalDefault() {
+                    try {
+                        const response = await fetch('/api/original-color-mapping');
+                        const data = await response.json();
+                        this.colorMappings = data;
+                        this.jsonText = JSON.stringify(data, null, 2);
+                    } catch (error) {
+                        console.error('加载原始默认映射失败:', error);
+                    }
+                },
+
+                async saveMapping() {
+                    try {
+                        const response = await fetch('/api/color-mapping', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(this.colorMappings)
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('颜色映射已保存为默认配置');
+                        }
+                    } catch (error) {
+                        alert('保存失败: ' + error.message);
+                    }
+                },
+
+                async handlePdfUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    this.pdfFile = file;
+                    this.pdfFileName = file.name;
+
+                    const formData = new FormData();
+                    formData.append('pdf_file', file);
+
+                    try {
+                        const xhr = new XMLHttpRequest();
+                        
+                        xhr.upload.addEventListener('progress', (e) => {
+                            if (e.lengthComputable) {
+                                this.uploadProgress = Math.round((e.loaded / e.total) * 100);
+                            }
+                        });
+
+                        xhr.addEventListener('load', () => {
+                            if (xhr.status === 200) {
+                                const response = JSON.parse(xhr.responseText);
+                                if (response.success) {
+                                    this.uploadId = response.upload_id;
+                                    this.pdfUploaded = true;
+                                    this.uploadProgress = 100;
+                                }
+                            }
+                        });
+
+                        xhr.open('POST', '/api/upload-pdf');
+                        xhr.send(formData);
+                    } catch (error) {
+                        console.error('上传失败:', error);
+                    }
+                },
+
+                handleJsonUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            this.colorMappings = data;
+                            this.jsonText = JSON.stringify(data, null, 2);
+                        } catch (error) {
+                            alert('JSON文件格式错误');
+                        }
+                    };
+                    reader.readAsText(file);
+                },
+
+                syncJsonFromTable() {
+                    this.jsonText = JSON.stringify(this.colorMappings, null, 2);
+                },
+
+                syncTableFromJson() {
+                    try {
+                        const data = JSON.parse(this.jsonText);
+                        this.colorMappings = data;
+                    } catch (error) {
+                        // JSON格式错误时不更新表格
+                    }
+                },
+
+                updateRgb(index, value) {
+                    const rgb = value.split(',').map(v => parseInt(v.trim()));
+                    if (rgb.length === 3 && rgb.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
+                        this.colorMappings.mappings[index].rgb_255 = rgb;
+                        this.syncJsonFromTable();
+                    }
+                },
+
+                updateCmyk(index, value) {
+                    const cmyk = value.split(',').map(v => parseInt(v.trim()));
+                    if (cmyk.length === 4 && cmyk.every(v => !isNaN(v) && v >= 0 && v <= 100)) {
+                        this.colorMappings.mappings[index].cmyk_100 = cmyk;
+                        this.syncJsonFromTable();
+                    }
+                },
+
+                addNewColor() {
+                    this.colorMappings.mappings.push({
+                        name: '新颜色',
+                        rgb_255: [0, 0, 0],
+                        cmyk_100: [0, 0, 0, 100]
+                    });
+                    this.syncJsonFromTable();
+                },
+
+                deleteColor(index) {
+                    if (confirm('确定要删除此颜色映射吗？')) {
+                        this.colorMappings.mappings.splice(index, 1);
+                        this.syncJsonFromTable();
+                    }
+                },
+
+                nextStep() {
+                    if (this.currentStep < 3) {
+                        this.currentStep++;
+                    }
+                },
+
+                previousStep() {
+                    if (this.currentStep > 1) {
+                        this.currentStep--;
+                    }
+                },
+
+                async processPdf() {
+                    this.processing = true;
+                    
+                    try {
+                        // 创建临时JSON文件
+                        const jsonBlob = new Blob([this.jsonText], { type: 'application/json' });
+                        const jsonFile = new File([jsonBlob], 'color_mapping.json');
+                        
+                        const formData = new FormData();
+                        formData.append('pdf_file', this.pdfFile);
+                        formData.append('json_file', jsonFile);
+                        formData.append('convert_text', this.convertTextToCurves);
+
+                        const response = await fetch('/process', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.downloadUrl = `/download/${result.upload_id}/${result.filename}`;
+                        } else {
+                            alert('处理失败: ' + result.message);
+                        }
+                    } catch (error) {
+                        alert('处理失败: ' + error.message);
+                    } finally {
+                        this.processing = false;
+                    }
+                },
+
+                resetProcess() {
+                    this.currentStep = 1;
+                    this.pdfFile = null;
+                    this.pdfFileName = '';
+                    this.pdfUploaded = false;
+                    this.uploadProgress = 0;
+                    this.downloadUrl = '';
+                    this.uploadId = '';
+                    document.getElementById('pdfFile').value = '';
+                    this.loadDefaultMapping();
+                }
+            }
+        }
+    </script>
 </body>
 </html>
