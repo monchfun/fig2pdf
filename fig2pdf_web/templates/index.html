@@ -270,7 +270,7 @@
         </div>
 
         <!-- 历史记录 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6" x-data="{ history: [] }">
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4">历史记录</h2>
             
             <div x-show="history.length === 0" class="text-center text-gray-500">
@@ -502,6 +502,8 @@
 
                 async processPdf() {
                     this.processing = true;
+                    this.cmykDownloadUrl = '';
+                    this.finalDownloadUrl = '';
                     
                     try {
                         // 创建临时JSON文件
@@ -521,24 +523,19 @@
                         const result = await response.json();
                         
                         if (result.success) {
-                            this.uploadId = result.upload_id; // Ensure uploadId is set
+                            this.uploadId = result.upload_id;
                             if (result.cmyk_pdf_filename) {
                                 this.cmykDownloadUrl = `/download/${result.upload_id}/${result.cmyk_pdf_filename}`;
-                            } else {
-                                this.cmykDownloadUrl = ''; // Clear if not available
                             }
                             if (result.final_pdf_filename) {
                                 this.finalDownloadUrl = `/download/${result.upload_id}/${result.final_pdf_filename}`;
-                            } else {
-                                this.finalDownloadUrl = ''; // Clear if not available
                             }
-                            // Clear old downloadUrl if it's still used somewhere
-                            this.downloadUrl = ''; 
+                            // Directly update history from the response
+                            if (result.history) {
+                                this.history = result.history;
+                            }
                         } else {
                             alert('处理失败: ' + result.message);
-                            this.cmykDownloadUrl = ''; // Clear on failure
-                            this.finalDownloadUrl = ''; // Clear on failure
-                            this.downloadUrl = ''; // Clear on failure
                         }
                     } catch (error) {
                         alert('处理失败: ' + error.message);
@@ -561,7 +558,7 @@
 
                 async fetchHistory() { // New method
                     try {
-                        const response = await fetch('/api/history');
+                        const response = await fetch('/api/history?t=' + new Date().getTime());
                         const data = await response.json();
                         this.history = data;
                     } catch (error) {

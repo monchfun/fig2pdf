@@ -1,7 +1,7 @@
 import os
 import json
 import datetime
-import shutil # New import
+import shutil
 from flask import Flask, request, render_template, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
 from process_pdf import process_pdf_files
@@ -9,11 +9,54 @@ import uuid
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
-# 取消PDF上传大小限制
-# app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max upload size
-
-# Ensure the upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def _get_history_data():
+    """Helper function to get history data as a list of dicts."""
+    history_records = []
+    uploads_dir = app.config['UPLOAD_FOLDER']
+
+    if not os.path.exists(uploads_dir):
+        return []
+
+    upload_ids = [d for d in os.listdir(uploads_dir) if os.path.isdir(os.path.join(uploads_dir, d))]
+    
+    for upload_id in upload_ids:
+        upload_dir_path = os.path.join(uploads_dir, upload_id)
+        
+        try:
+            timestamp = os.path.getctime(upload_dir_path)
+            dt_object = datetime.datetime.fromtimestamp(timestamp)
+            formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            formatted_time = "未知时间"
+
+        record = {
+            "upload_id": upload_id,
+            "timestamp": formatted_time,
+            "original_pdf": None,
+            "json_mapping": None,
+            "cmyk_pdf": None,
+            "final_pdf": None
+        }
+
+        for filename in os.listdir(upload_dir_path):
+            file_path = os.path.join(upload_dir_path, filename)
+            if os.path.isfile(file_path):
+                if filename.endswith('_cmyk.pdf'):
+                    record["cmyk_pdf"] = filename
+                elif filename.endswith('_modern_print.pdf'):
+                    record["final_pdf"] = filename
+                elif filename.endswith('.json'):
+                    record["json_mapping"] = filename
+                elif filename.lower().endswith('.pdf') and not (filename.endswith('_cmyk.pdf') or filename.endswith('_modern_print.pdf')):
+                    record["original_pdf"] = filename
+        
+        if record["cmyk_pdf"] or record["final_pdf"]:
+            history_records.append(record)
+
+    history_records.sort(key=lambda x: x["timestamp"], reverse=True)
+    return history_records
 
 @app.route('/', methods=['GET'])
 def index():
@@ -23,14 +66,12 @@ def index():
 def process_files():
     """API endpoint for processing PDF files with AJAX"""
     try:
-        # Check if the post request has the file part
         if 'pdf_file' not in request.files or 'json_file' not in request.files:
             return jsonify({"success": False, "message": "请选择PDF文件和JSON文件"})
 
         pdf_file = request.files['pdf_file']
         json_file = request.files['json_file']
 
-        # If user does not select file, browser also submits an empty part without filename
         if pdf_file.filename == '' or json_file.filename == '':
             return jsonify({"success": False, "message": "请选择PDF文件和JSON文件"})
 
@@ -48,27 +89,23 @@ def process_files():
             pdf_file.save(pdf_path)
             json_file.save(json_path)
 
-            # Get convert_text_to_curves parameter
             convert_text_to_curves = request.form.get('convert_text', 'false').lower() == 'true'
-
-            # Process the PDF files
             processing_result = process_pdf_files(pdf_path, json_path, upload_dir, convert_text_to_curves=convert_text_to_curves)
 
             if processing_result["success"]:
-                cmyk_pdf_filename = None
-                if processing_result["output_cmyk_pdf"]:
-                    cmyk_pdf_filename = os.path.basename(processing_result["output_cmyk_pdf"])
+                cmyk_pdf_filename = os.path.basename(processing_result["output_cmyk_pdf"]) if processing_result.get("output_cmyk_pdf") else None
+                final_pdf_filename = os.path.basename(processing_result["output_final_pdf"]) if processing_result.get("output_final_pdf") else None
                 
-                final_pdf_filename = None
-                if processing_result["output_final_pdf"]:
-                    final_pdf_filename = os.path.basename(processing_result["output_final_pdf"])
+                # Get updated history
+                updated_history = _get_history_data()
 
                 return jsonify({
                     "success": True,
                     "message": processing_result["message"],
                     "upload_id": upload_id,
                     "cmyk_pdf_filename": cmyk_pdf_filename,
-                    "final_pdf_filename": final_pdf_filename
+                    "final_pdf_filename": final_pdf_filename,
+                    "history": updated_history  # Return updated history
                 })
             else:
                 return jsonify({
@@ -153,64 +190,13 @@ def upload_pdf():
 @app.route('/api/history', methods=['GET'])
 def get_history():
     """获取处理历史记录"""
-    history_records = []
-    uploads_dir = app.config['UPLOAD_FOLDER']
-
-    if not os.path.exists(uploads_dir):
-        return jsonify([])
-
-    # Get all upload_id directories
-    upload_ids = [d for d in os.listdir(uploads_dir) if os.path.isdir(os.path.join(uploads_dir, d))]
-    
-    for upload_id in upload_ids:
-        upload_dir_path = os.path.join(uploads_dir, upload_id)
-        
-        # Get timestamp (creation time of the directory)
-        try:
-            timestamp = os.path.getctime(upload_dir_path)
-            dt_object = datetime.datetime.fromtimestamp(timestamp)
-            formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-        except Exception:
-            formatted_time = "未知时间" # Fallback if timestamp cannot be retrieved
-
-        record = {
-            "upload_id": upload_id,
-            "timestamp": formatted_time,
-            "original_pdf": None,
-            "json_mapping": None,
-            "cmyk_pdf": None,
-            "final_pdf": None
-        }
-
-        # Iterate through files in the upload_id directory
-        for filename in os.listdir(upload_dir_path):
-            file_path = os.path.join(upload_dir_path, filename)
-            if os.path.isfile(file_path):
-                if filename.endswith('_cmyk.pdf'):
-                    record["cmyk_pdf"] = filename
-                elif filename.endswith('_modern_print.pdf'):
-                    record["final_pdf"] = filename
-                elif filename.endswith('.json'):
-                    record["json_mapping"] = filename
-                elif filename.lower().endswith('.pdf') and not (filename.endswith('_cmyk.pdf') or filename.endswith('_modern_print.pdf')):
-                    # Assuming any other PDF is the original input PDF
-                    record["original_pdf"] = filename
-        
-        # Only add records that have at least one processed file (CMYK or Final)
-        if record["cmyk_pdf"] or record["final_pdf"]:
-            history_records.append(record)
-
-    # Sort by timestamp, newest first
-    history_records.sort(key=lambda x: x["timestamp"], reverse=True)
-
-    return jsonify(history_records)
+    return jsonify(_get_history_data())
 
 @app.route('/api/clear-history', methods=['POST'])
 def clear_history():
     """清空所有上传和处理的历史记录"""
     uploads_dir = app.config['UPLOAD_FOLDER']
     try:
-        # Remove all subdirectories and files within the uploads directory
         for item in os.listdir(uploads_dir):
             item_path = os.path.join(uploads_dir, item)
             if os.path.isdir(item_path):
@@ -218,7 +204,6 @@ def clear_history():
             elif os.path.isfile(item_path):
                 os.remove(item_path)
         
-        # Recreate the uploads directory if it was removed (shutil.rmtree on uploads_dir itself)
         os.makedirs(uploads_dir, exist_ok=True)
 
         return jsonify({"success": True, "message": "历史记录已清空"})
@@ -226,6 +211,5 @@ def clear_history():
         return jsonify({"success": False, "message": f"清空历史记录失败: {str(e)}"})
 
 if __name__ == '__main__':
-    # Get the port from environment variable or use a default
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)

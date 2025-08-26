@@ -46,9 +46,8 @@
 ├── fig2pdf_web/
 │   ├── app.py              # Web 应用程序主文件
 │   ├── process_pdf.py      # 核心 PDF 处理脚本
-│   ├── color_mapping.json  # 颜色映射配置文件示例 (Web 应用使用上传的文件)
 │   ├── templates/          # HTML 模板文件
-│   └── static/             # 静态文件 (CSS, JS 等)
+│   └── uploads/            # 上传文件存储目录
 ├── figma-plugin/           # Figma 插件目录
 ├── README.md               # 项目说明
 └── PROJECT_LOG.md          # 项目日志
@@ -60,48 +59,48 @@
 
 ### 方式一：Web 应用（推荐）
 
-1.  **启动 Web 应用**：
+1.  **进入 Web 应用目录**：
     ```bash
     cd fig2pdf_web
-    python3 app.py
     ```
 
-2.  **访问应用**：在浏览器中打开 `http://localhost:5000`
+2.  **启动 Web 应用**：
+    为了确保使用正确的 Python 环境和依赖，推荐使用项目自带的虚拟环境。
 
-3.  **上传文件**：同时上传从 Figma 导出的 PDF 文件和对应的 `color_mapping.json` 文件
+    *   **方式 A (推荐):** 直接执行虚拟环境中的 Python
+        ```bash
+        ./venv/bin/python app.py
+        ```
+    *   **方式 B:** 先激活虚拟环境，再运行
+        ```bash
+        source venv/bin/activate
+        python app.py
+        ```
+    如果 `python` 命令不起作用，请尝试 `python3`。
 
-4.  **下载结果**：处理完成后下载转换后的印刷级 PDF 文件
+3.  **访问应用**：在浏览器中打开 `http://localhost:5000` (或您在启动时指定的其他端口)。
 
-### 方式二：命令行脚本
+4.  **上传文件**：根据页面提示，上传从 Figma 导出的 PDF 文件和对应的 `color_mapping.json` 文件。
 
-1.  **放置文件**：将您从 Figma 导出的 PDF 文件放入此文件夹，并将其重命名为 `PPT.pdf`（或者在 `process_pdf.py` 脚本中修改 `INPUT_PDF` 变量的值）。
+5.  **下载结果**：处理完成后，历史记录会自动更新，您可以直接下载转换后的印刷级 PDF 文件。
 
-2.  **配置颜色**：打开 `color_mapping.json` 文件。这是一个包含映射规则的列表。根据您的设计稿，修改或添加颜色条目。
-    -   `rgb_255`: 您在 Figma 中使用的原始 RGB 值 (0-255)。
-    -   `cmyk_100`: 您希望在最终印刷品中呈现的、精确的 CMYK 值 (0-100)。
-    ```json
-    {
-      "mappings": [
-        {
-          "comment": "The main blue color used in titles and diagrams",
-          "rgb_255": [8, 77, 232],
-          "cmyk_100": [95, 60, 0, 20]
-        },
-        {
-          "comment": "The red color for 'abnormal' paths in the diagram",
-          "rgb_255": [237, 85, 85],
-          "cmyk_100": [0, 80, 65, 0]
-        }
-      ]
-    }
-    ```
+### 方式二：命令行脚本（开发者/高级用户）
 
-3.  **运行脚本**：打开终端（命令行工具），进入当前文件夹 (`/Users/monch/fig2pdf`)，然后执行以下命令：
+`process_pdf.py` 脚本也可以独立于 Web 应用，在命令行中直接运行。这对于批量处理或集成到其他自动化流程中非常有用。
+
+1.  **准备文件**：将需要处理的 PDF 文件和对应的 `color_mapping.json` 文件放在任意位置。
+
+2.  **运行脚本**：打开终端，进入 `fig2pdf_web` 目录，然后执行以下命令，将 `<input_pdf_path>` 和 `<color_mapping_path>` 替换为您的实际文件路径。
     ```bash
-    python3 process_pdf.py
+    cd fig2pdf_web
+    ./venv/bin/python process_pdf.py <input_pdf_path> <color_mapping_path>
+    ```
+    例如:
+    ```bash
+    ./venv/bin/python process_pdf.py /path/to/my/design.pdf /path/to/my/colors.json
     ```
 
-4.  **获取成品**：脚本执行成功后，文件夹内会生成最终文件 `PPT_modern_print.pdf`。
+3.  **获取成品**：脚本执行成功后，会在您执行命令的目录下生成最终文件 `*_modern_print.pdf`。
 
 ---
 
