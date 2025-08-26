@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p uploads
 
 # 暴露端口
-EXPOSE 7860
+EXPOSE 5000
 
 # 启动应用
-CMD ["python", "gradio_app.py"]
+CMD ["python", "app.py"]

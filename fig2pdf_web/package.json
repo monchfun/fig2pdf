@@ -2,10 +2,10 @@
   "name": "fig2pdf-web",
   "version": "1.0.0",
   "description": "Figma to PDF color conversion web application",
-  "main": "gradio_app.py",
+  "main": "app.py",
   "scripts": {
-    "start": "python gradio_app.py",
-    "dev": "python gradio_app.py"
+    "start": "python app.py",
+    "dev": "python app.py"
   },
   "keywords": ["figma", "pdf", "color-conversion", "gradio"],
   "author": "",
