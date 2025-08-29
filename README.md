@@ -43,7 +43,7 @@
 
 ```
 /fig2pdf/
-├── fig2pdf_web/
+├── backend/
 │   ├── app.py              # Web 应用程序主文件
 │   ├── process_pdf.py      # 核心 PDF 处理脚本
 │   ├── templates/          # HTML 模板文件
@@ -61,7 +61,7 @@
 
 1.  **进入 Web 应用目录**：
     ```bash
-    cd fig2pdf_web
+    cd backend
     ```
 
 2.  **启动 Web 应用**：
@@ -90,9 +90,10 @@
 
 1.  **准备文件**：将需要处理的 PDF 文件和对应的 `color_mapping.json` 文件放在任意位置。
 
-2.  **运行脚本**：打开终端，进入 `fig2pdf_web` 目录，然后执行以下命令，将 `<input_pdf_path>` 和 `<color_mapping_path>` 替换为您的实际文件路径。
+2.  **运行脚本**：打开终端，进入 `backend` 目录，然后执行以下命令，将 `<input_pdf_path>` 和 `<color_mapping_path>` 替换为您的实际文件路径。
     ```bash
-    cd fig2pdf_web
+    cd backend
+    cd backend
     ./venv/bin/python process_pdf.py <input_pdf_path> <color_mapping_path>
     ```
     例如:

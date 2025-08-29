@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: fig2pdf-web
+    name: backend
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt

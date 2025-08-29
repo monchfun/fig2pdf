@@ -3,11 +3,13 @@ import json
 import datetime
 import shutil
 from flask import Flask, request, render_template, send_from_directory, jsonify
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from process_pdf import process_pdf_files
 import uuid
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -58,9 +60,17 @@ def _get_history_data():
     history_records.sort(key=lambda x: x["timestamp"], reverse=True)
     return history_records
 
-@app.route('/', methods=['GET'])
-def index():
-    return render_template('index.html')
+# Serve Vue.js static files
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_vue_app(path):
+    if path != "" and os.path.exists(app.static_folder + '/' + path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
+
+# Set the static folder to the Vue.js build output
+app.static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'vue-app', 'dist'))
 
 @app.route('/process', methods=['POST'])
 def process_files():
@@ -211,5 +221,5 @@ def clear_history():
         return jsonify({"success": False, "message": f"清空历史记录失败: {str(e)}"})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5001))
     app.run(host='0.0.0.0', port=port)
