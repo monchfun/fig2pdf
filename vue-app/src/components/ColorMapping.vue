@@ -23,9 +23,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import PdfPreview from '@/components/PdfPreview.vue'
 
 const props = defineProps({
   mappings: { type: Array, required: true },
+  selectedFile: { type: Object, default: null },
 })
 
 const emit = defineEmits(['update:mappings', 'onResetToOriginalDefault', 'onSaveMapping'])
@@ -149,93 +151,107 @@ const saveMapping = () => {
 </script>
 
 <template>
-  <Card class="w-full max-w-4xl mx-auto">
-    <CardHeader>
-      <CardTitle>步骤 2: 配置颜色映射</CardTitle>
-    </CardHeader>
-    <CardContent class="space-y-6">
-      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h3 class="text-lg font-semibold text-gray-800">颜色映射配置</h3>
-        <div class="flex flex-wrap gap-2">
-          <Button variant="outline" @click="resetToOriginalDefault">重置为默认</Button>
-          <Button variant="outline" @click="saveMapping">保存为默认</Button>
-          <Button @click="handleAddNewColor">➕ 添加颜色</Button>
-        </div>
-      </div>
-
-      <div>
-        <Label for="json-upload">上传自定义JSON文件 (可选)</Label>
-        <Input id="json-upload" type="file" accept=".json" class="mt-2" @change="handleJsonUpload" />
-      </div>
-
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <!-- Table View -->
-        <div class="space-y-3">
-          <h4 class="text-sm font-semibold text-gray-700">映射表格</h4>
-          <div class="border rounded-xl overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>颜色名称</TableHead>
-                  <TableHead>RGB</TableHead>
-                  <TableHead>CMYK</TableHead>
-                  <TableHead>操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow v-for="(mapping, index) in mappings" :key="index">
-                  <TableCell>
-                    <Input
-                      type="text"
-                      :model-value="mapping.name"
-                      @update:model-value="(value) => handleTableInputChange(index, 'name', value)"
-                      class="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="text"
-                      :model-value="mapping.rgb_255.join(', ')"
-                      @update:model-value="(value) => handleTableInputChange(index, 'rgb_255', value)"
-                      class="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="text"
-                      :model-value="mapping.cmyk_100.join(', ')"
-                      @update:model-value="(value) => handleTableInputChange(index, 'cmyk_100', value)"
-                      class="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      @click="() => handleDeleteColor(index)"
-                    >
-                      删除
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+  <div class="space-y-6">
+    <!-- Color Mapping Configuration Card -->
+    <Card class="w-full max-w-4xl mx-auto">
+      <CardHeader>
+        <CardTitle>步骤 2: 配置颜色映射</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h3 class="text-lg font-semibold text-gray-800">颜色映射配置</h3>
+          <div class="flex flex-wrap gap-2">
+            <Button variant="outline" @click="resetToOriginalDefault">重置为默认</Button>
+            <Button variant="outline" @click="saveMapping">保存为默认</Button>
+            <Button @click="handleAddNewColor">➕ 添加颜色</Button>
           </div>
         </div>
 
-        <!-- JSON View -->
-        <div class="space-y-3">
-          <h4 class="text-sm font-semibold text-gray-700">JSON配置</h4>
-          <Textarea
-            class="w-full h-64 font-mono text-sm"
-            placeholder="JSON配置将在这里显示..."
-            :model-value="jsonText"
-            @update:model-value="jsonText = $event; syncTableFromJson()"
-          />
+        <div>
+          <Label for="json-upload">上传自定义JSON文件 (可选)</Label>
+          <Input id="json-upload" type="file" accept=".json" class="mt-2" @change="handleJsonUpload" />
         </div>
-      </div>
-    </CardContent>
-  </Card>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <!-- Table View -->
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold text-gray-700">映射表格</h4>
+            <div class="border rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>颜色名称</TableHead>
+                    <TableHead>RGB</TableHead>
+                    <TableHead>CMYK</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow v-for="(mapping, index) in mappings" :key="index">
+                    <TableCell>
+                      <Input
+                        type="text"
+                        :model-value="mapping.name"
+                        @update:model-value="(value) => handleTableInputChange(index, 'name', value)"
+                        class="h-8"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        :model-value="mapping.rgb_255.join(', ')"
+                        @update:model-value="(value) => handleTableInputChange(index, 'rgb_255', value)"
+                        class="h-8"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        :model-value="mapping.cmyk_100.join(', ')"
+                        @update:model-value="(value) => handleTableInputChange(index, 'cmyk_100', value)"
+                        class="h-8"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        @click="() => handleDeleteColor(index)"
+                      >
+                        删除
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <!-- JSON View -->
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold text-gray-700">JSON配置</h4>
+            <Textarea
+              class="w-full h-64 font-mono text-sm"
+              placeholder="JSON配置将在这里显示..."
+              :model-value="jsonText"
+              @update:model-value="jsonText = $event; syncTableFromJson()"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- PDF Preview with Real-time Color Preview -->
+    <div v-if="selectedFile" class="w-full max-w-4xl mx-auto">
+      <PdfPreview 
+        :key="selectedFile ? `${selectedFile.name}-${selectedFile.lastModified}` : ''"
+        :pdf-file="selectedFile" 
+        :color-mappings="mappings"
+        :show-color-preview="true"
+        @loaded="(data) => console.log('PDF loaded for color preview:', data)"
+      />
+    </div>
+  </div>
 
   <!-- AlertDialog Component -->
   <AlertDialog :open="showAlertDialog" @update:open="showAlertDialog = $event">

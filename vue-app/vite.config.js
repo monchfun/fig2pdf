@@ -29,5 +29,8 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/download/, '/download'), // Keep /download in path
       },
     }
-  }
+  },
+  build: {
+    
+  },
 })
