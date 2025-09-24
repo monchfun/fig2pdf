@@ -47,9 +47,7 @@
 │   ├── requirements.txt    # Python 依赖
 │   ├── venv/               # Python 虚拟环境
 │   └── uploads/            # 上传文件存储目录
-├── figma-plugin/           # Figma 插件目录
-│   ├── code.js
-│   └── manifest.json
+
 ├── vue-app/                # Vue.js 前端
 │   ├── src/                # 源代码
 │   ├── public/             # 公共静态资源
