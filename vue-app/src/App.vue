@@ -1,215 +1,273 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { Button } from '@/components/ui/button';
-import FileUpload from '@/components/FileUpload.vue';
-import ColorMapping from '@/components/ColorMapping.vue';
-import ProcessAndDownload from '@/components/ProcessAndDownload.vue';
-import HistoryTable from '@/components/HistoryTable.vue';
-import PdfPreview from '@/components/PdfPreview.vue'; // Import PdfPreview
 import { useToast, Toaster } from '@/components/ui/toast';
+import FileUpload from '@/components/FileUpload.vue';
+import PdfPreview from '@/components/PdfPreview.vue';
+import ColorMapping from '@/components/ColorMapping.vue';
+import HistoryTable from '@/components/HistoryTable.vue';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel } from '@/components/ui/alert-dialog';
 
-// Backend API URL - now proxied by Vite
-const API_URL = ''; // Use relative path for proxy
-
-const currentStep = ref(1);
+// --- App State ---
+const appState = ref('initial'); // initial, analyzing, file_ready, processing, done
 const selectedFile = ref(null);
-const colorMappings = ref([]); // Use ref for reactive array
-const history = ref([]); // New state for history
+const uniqueColors = ref([]); // Holds the array of {hex, rgb, cmyk, count}
+const finalResult = ref(null);
+const convertTextToCurves = ref(false);
+const errorMessage = ref('');
+const history = ref([]);
+const isHistoryOpen = ref(false);
 
-const totalSteps = 3;
+const previewMappings = computed(() => {
+  return uniqueColors.value.map(color => ({
+    name: color.hex,
+    rgb_255: color.rgb,
+    cmyk_100: color.cmyk,
+  }));
+});
 
 const { toast } = useToast();
 
-// Fetch default color mappings on initial load
-onMounted(() => {
-  fetch(`/api/color-mapping`) // Use relative path for proxy
-    .then(response => response.json())
-    .then(data => {
-      if (data && data.mappings) {
-        colorMappings.value = data.mappings; // Update ref's value
-      }
-    })
-    .catch(error => {
-      console.error('Error fetching color mappings:', error);
-      toast({ title: '加载错误', description: '无法加载默认颜色映射，请检查后端服务。', variant: 'destructive' });
+// --- Core Logic ---
+const handleFileSelect = async (file) => {
+  if (!file) return;
+  selectedFile.value = file;
+  appState.value = 'analyzing';
+  errorMessage.value = '';
+  uniqueColors.value = [];
+
+  try {
+    const formData = new FormData();
+    formData.append('pdf_file', file);
+    const response = await fetch('/api/analyze-colors', {
+      method: 'POST',
+      body: formData,
     });
-  
-  fetchHistory(); // Fetch history on mount
+    if (!response.ok) throw new Error('颜色分析失败，请检查PDF文件是否有效。');
+    
+    const result = await response.json();
+    if (result.success) {
+      uniqueColors.value = result.colors;
+      appState.value = 'file_ready';
+    } else {
+      throw new Error(result.message || '分析结果无效。');
+    }
+
+  } catch (error) {
+    console.error('Error during file processing:', error);
+    errorMessage.value = `处理失败: ${error.message}`;
+    toast({ title: '错误', description: errorMessage.value, variant: 'destructive' });
+    resetApp();
+  }
+};
+
+const resetApp = () => {
+  appState.value = 'initial';
+  selectedFile.value = null;
+  uniqueColors.value = [];
+  errorMessage.value = '';
+  finalResult.value = null;
+  convertTextToCurves.value = false;
+};
+
+const handleProcessRequest = async () => {
+  if (!selectedFile.value || uniqueColors.value.length === 0) {
+    toast({ title: '错误', description: '缺少文件或颜色映射。' });
+    return;
+  }
+
+  appState.value = 'processing';
+  finalResult.value = null;
+
+  try {
+    // Prepare the color mapping JSON from the current state
+    const mappingsForExport = {
+      mappings: uniqueColors.value.map(color => ({
+        name: color.hex, // Use hex as name
+        rgb_255: color.rgb,
+        cmyk_100: color.cmyk,
+      }))
+    };
+    const jsonBlob = new Blob([JSON.stringify(mappingsForExport, null, 2)], { type: 'application/json' });
+
+    const formData = new FormData();
+    formData.append('pdf_file', selectedFile.value);
+    formData.append('json_file', jsonBlob, 'color-mapping.json');
+    formData.append('convert_text', convertTextToCurves.value);
+
+    const response = await fetch('/process', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || '文件处理失败。');
+    }
+
+    const result = await response.json();
+    if (result.success) {
+      finalResult.value = result;
+      history.value = result.history; // Update history from response
+      appState.value = 'done';
+      toast({ title: '成功', description: '文件处理完成！' });
+    } else {
+      throw new Error(result.message || '处理过程中发生未知错误。');
+    }
+
+  } catch (error) {
+    console.error('Error during processing:', error);
+    errorMessage.value = `处理失败: ${error.message}`;
+    toast({ title: '错误', description: errorMessage.value, variant: 'destructive' });
+    appState.value = 'file_ready'; // Revert to the ready state on error
+  }
+};
+
+// --- History Methods ---
+onMounted(() => {
+  fetchHistory();
 });
 
-// Function to fetch history
-const fetchHistory = () => {
-  fetch(`/api/history?t=${new Date().getTime()}`) // Add timestamp to prevent caching
-    .then(response => response.json())
-    .then(data => {
-      history.value = data;
-    })
-    .catch(error => {
-      console.error('Error fetching history:', error);
-      toast({ title: '加载错误', description: '无法加载历史记录，请检查后端服务。', variant: 'destructive' });
-    });
-};
-
-// Function to clear history
-const clearHistory = () => {
-  if (window.confirm('确定要清空所有历史记录吗？此操作不可撤销。')) {
-    fetch(`${API_URL}/api/clear-history`, {
-      method: 'POST',
-    })
-      .then(response => response.json())
-      .then(result => {
-        if (result.success) {
-          toast({ title: '成功', description: result.message });
-          fetchHistory(); // Refresh history after clearing
-        } else {
-          toast({ title: '失败', description: '清空失败: ' + result.message, variant: 'destructive' });
-        }
-      })
-      .catch(error => {
-        console.error('Error clearing history:', error);
-        toast({ title: '错误', description: '清空失败: ' + error.message, variant: 'destructive' });
-      });
+const fetchHistory = async () => {
+  try {
+    const response = await fetch(`/api/history?t=${new Date().getTime()}`);
+    if (!response.ok) throw new Error('无法获取历史记录');
+    const data = await response.json();
+    history.value = data;
+  } catch (error) {
+    toast({ title: '历史记录错误', description: error.message, variant: 'destructive' });
   }
 };
 
-// Function to reset color mappings to original default
-const resetColorMappingsToOriginalDefault = () => {
-  console.log('Attempting to reset color mappings to original default...');
-  fetch(`/api/original-color-mapping`) // Use relative path for proxy
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data && data.mappings) {
-        colorMappings.value = data.mappings;
-        toast({ title: '成功', description: '已重置为原始默认颜色映射。' });
-      } else {
-        toast({ title: '重置失败', description: '重置失败：数据格式不正确。', variant: 'destructive' });
-      }
-    })
-    .catch(error => {
-      console.error('Error resetting color mappings:', error);
-      toast({ title: '重置失败', description: '重置失败：' + error.message, variant: 'destructive' });
-    });
-};
-
-// Function to save current color mappings as default
-const saveColorMappingsAsDefault = () => {
-  fetch(`${API_URL}/api/color-mapping`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ mappings: colorMappings.value }),
-  })
-    .then(response => response.json())
-    .then(result => {
-      if (result.success) {
-        toast({ title: '成功', description: '颜色映射已保存为默认配置。' });
-      } else {
-        toast({ title: '失败', description: '保存失败: ' + result.message, variant: 'destructive' });
-      }
-    })
-    .catch(error => {
-      console.error('Error saving color mappings:', error);
-      toast({ title: '失败', description: '保存失败: ' + error.message, variant: 'destructive' });
-    });
-};
-
-const handleNext = () => {
-  if (currentStep.value < totalSteps) {
-    currentStep.value++;
-  }
-}
-
-const handleBack = () => {
-  if (currentStep.value > 1) {
-    currentStep.value--;
+const clearHistory = async () => {
+  if (!window.confirm('确定要清空所有历史记录吗？此操作不可撤销。')) return;
+  try {
+    const response = await fetch('/api/clear-history', { method: 'POST' });
+    if (!response.ok) throw new Error('清空历史记录失败');
+    const result = await response.json();
+    if (result.success) {
+      toast({ title: '成功', description: '历史记录已清空。' });
+      fetchHistory(); // Refresh the list
+      isHistoryOpen.value = false; // Close the dialog
+    } else {
+      throw new Error(result.message);
+    }
+  } catch (error) {
+    toast({ title: '错误', description: error.message, variant: 'destructive' });
   }
 };
 
-// Watch for selectedFile changes to enable/disable Next button for step 1
-const isNextDisabled = ref(true);
-watch([currentStep, selectedFile], ([newStep, newFile]) => {
-  if (newStep === 1) {
-    isNextDisabled.value = !newFile;
-  } else {
-    isNextDisabled.value = false;
-  }
-}, { immediate: true });
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-    <div class="w-full max-w-4xl">
-      <h1 class="text-3xl font-bold text-center mb-8">
-        PDF颜色转换工具 (Vue Version)
-      </h1>
-      
-      <!-- Placeholder for Step Indicator -->
-      <div class="flex justify-center mb-8">
-        <p class="text-sm text-gray-500">步骤 {{ currentStep }} / {{ totalSteps }}</p>
+  <div class="min-h-screen bg-gray-100 text-gray-800 p-4 sm:p-8">
+    <div class="max-w-6xl mx-auto">
+      <header class="text-center mb-8 relative">
+        <h1 class="text-4xl font-bold text-gray-900">PDF 颜色转换工作台</h1>
+        <p class="text-lg text-gray-600 mt-2">一个更现代、更直观的颜色转换流程</p>
+        <div class="absolute top-0 right-0">
+          <Button variant="outline" @click="isHistoryOpen = true">查看历史记录</Button>
+        </div>
+      </header>
+
+      <!-- Initial State: File Upload -->
+      <div v-if="appState === 'initial'" class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+        <FileUpload @fileSelected="handleFileSelect" />
       </div>
 
-      <!-- Main content area -->
-      <div class="mb-8">
-        <FileUpload v-if="currentStep === 1" @fileSelected="selectedFile = $event" />
-        
-        <ColorMapping 
-          v-else-if="currentStep === 2" 
-          :mappings="colorMappings" 
-          :selectedFile="selectedFile"
-          @update:mappings="colorMappings = $event" 
-          @onResetToOriginalDefault="resetColorMappingsToOriginalDefault"
-          @onSaveMapping="saveColorMappingsAsDefault"
-        />
-        
-        <ProcessAndDownload 
-          v-else-if="currentStep === 3" 
-          :selectedFile="selectedFile" 
-          :colorMappings="colorMappings" 
-          @historyUpdated="history = $event" 
-        />
+      <!-- Analyzing State -->
+      <div v-if="appState === 'analyzing'" class="text-center p-8">
+        <p class="text-xl font-semibold animate-pulse">正在分析 PDF 中的主要颜色，请稍候...</p>
+        <p class="text-gray-500 mt-2">{{ selectedFile?.name }}</p>
       </div>
 
-      <!-- PDF Preview for Step 1 -->
-      <div v-show="currentStep === 1 && selectedFile" class="w-full max-w-4xl mx-auto mb-8">
-        <template v-if="selectedFile">
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <h3 class="text-lg font-semibold text-blue-800 mb-2">PDF预览</h3>
-            <p class="text-blue-600">文件名: {{ selectedFile.name }}</p>
-            <p class="text-blue-600">文件大小: {{ Math.round(selectedFile.size / 1024) }} KB</p>
-            <p class="text-blue-600">文件类型: {{ selectedFile.type }}</p>
+      <!-- Main Workspace -->
+      <div v-if="appState === 'file_ready' || appState === 'processing' || appState === 'done'" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        
+        <!-- Left Panel: PDF Preview -->
+        <div class="md:col-span-2 bg-white p-6 rounded-lg shadow-md">
+          <h2 class="text-2xl font-bold mb-4 border-b pb-2">PDF 预览</h2>
+          <div v-if="selectedFile">
+            <PdfPreview 
+              :key="selectedFile.name"
+              :pdf-file="selectedFile" 
+              :show-color-preview="appState === 'file_ready'" 
+              :color-mappings="previewMappings"
+            />
           </div>
-          <PdfPreview 
-            :key="`${selectedFile.name}-${selectedFile.lastModified}`"
-            :pdf-file="selectedFile" 
-            :show-color-preview="false"
-            @loaded="(data) => console.log('PDF loaded:', data)"
-          />
-        </template>
+        </div>
+
+        <!-- Right Panel: Configuration & Actions -->
+        <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-md flex flex-col">
+          
+          <!-- State: File Ready (Configuration) -->
+          <div v-if="appState === 'file_ready'" class="flex flex-col h-full">
+            <div class="flex-grow">
+              <ColorMapping 
+                v-if="uniqueColors.length > 0"
+                :colors="uniqueColors"
+                @update:colors="uniqueColors = $event"
+              />
+              <p v-else class="text-gray-500 text-center pt-10">未在此 PDF 中提取到可识别的颜色。</p>
+            </div>
+            <div class="mt-8 space-y-4">
+              <div class="flex items-center space-x-2">
+                <input type="checkbox" id="convertText" v-model="convertTextToCurves" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                <label for="convertText" class="text-sm font-medium text-gray-700">文字转曲线 (用于印刷)</label>
+              </div>
+              <Button @click="handleProcessRequest" class="w-full text-lg py-6">开始转换</Button>
+              <Button @click="resetApp" variant="outline" class="w-full">处理另一个文件</Button>
+            </div>
+          </div>
+
+          <!-- State: Processing -->
+          <div v-if="appState === 'processing'" class="flex flex-col items-center justify-center h-full text-center">
+            <p class="text-2xl font-semibold animate-pulse">正在处理文件...</p>
+            <p class="text-gray-500 mt-4">这可能需要一些时间，请不要关闭页面。</p>
+          </div>
+
+          <!-- State: Done -->
+          <div v-if="appState === 'done'" class="flex flex-col h-full">
+            <div class="flex-grow">
+              <h2 class="text-2xl font-bold mb-4 text-green-600">处理完成！</h2>
+              <p class="text-gray-600 mb-6">您可以下载转换后的文件了。</p>
+              <div class="space-y-4">
+                <a v-if="finalResult.cmyk_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.cmyk_pdf_filename}`" download>
+                  <Button class="w-full" variant="secondary">下载 CMYK 替换版</Button>
+                </a>
+                <a v-if="finalResult.final_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.final_pdf_filename}`" download>
+                  <Button class="w-full" variant="secondary">下载印刷最终版</Button>
+                </a>
+              </div>
+            </div>
+            <div class="mt-8 space-y-4">
+              <Button @click="resetApp" class="w-full text-lg py-6">处理另一个文件</Button>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      <!-- History Table -->
-      <HistoryTable :history="history" :onFetchHistory="fetchHistory" :onClearHistory="clearHistory" />
+      <!-- History Modal -->
+      <AlertDialog :open="isHistoryOpen" @update:open="isHistoryOpen = $event">
+        <AlertDialogContent class="max-w-4xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>处理历史记录</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div class="max-h-[60vh] overflow-y-auto p-2">
+            <HistoryTable 
+              :history="history"
+              :onFetchHistory="fetchHistory"
+              :onClearHistory="clearHistory"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>关闭</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <!-- Navigation Buttons -->
-      <div class="flex justify-between mt-8">
-        <Button @click="handleBack" :disabled="currentStep === 1">
-          上一步
-        </Button>
-        <Button @click="handleNext" :disabled="currentStep === totalSteps || isNextDisabled">
-          下一步
-        </Button>
-      </div>
     </div>
   </div>
   <Toaster />
 </template>
-
-<style scoped>
-/* No specific styles needed here, Tailwind handles it */
-</style>

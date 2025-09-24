@@ -29,7 +29,7 @@
 在运行此项目前，请确保您的系统中已安装以下软件：
 
 *   **Node.js**: v18 或更高版本。 [下载地址](https://nodejs.org/)
-*   **Yarn**: v1.22 或更高版本。 [安装指南](https://classic.yarnpkg.com/en/docs/install)
+*   **Yarn**: v1.22 或更高版本。 [安装指南](https://classic.yarnpkg.com/en/docs/install)。如果未安装，请先安装 Yarn。
 *   **Python 3**: v3.8 或更高版本。 [下载地址](https://www.python.org/)
 *   **Ghostscript**: 必须安装，并确保 `gs` 命令在系统的环境变量 `PATH` 中可用。
     *   **macOS (Homebrew)**: `brew install ghostscript`
@@ -98,7 +98,7 @@
     cd vue-app
     ```
 
-3.  **安装 Node.js 依赖** (如果第一次运行):
+3.  **安装 Node.js 依赖** (如果第一次运行，请确保已安装 Yarn):
     ```bash
     yarn install
     ```

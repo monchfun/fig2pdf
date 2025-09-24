@@ -6,6 +6,7 @@ from flask import Flask, request, render_template, send_from_directory, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from process_pdf import process_pdf_files
+from pdf_color_analyzer import extract_unique_colors
 import uuid
 
 app = Flask(__name__)
@@ -18,47 +19,51 @@ def _get_history_data():
     history_records = []
     uploads_dir = app.config['UPLOAD_FOLDER']
 
-    if not os.path.exists(uploads_dir):
-        return []
+    try:
+        if not os.path.exists(uploads_dir):
+            return []
 
-    upload_ids = [d for d in os.listdir(uploads_dir) if os.path.isdir(os.path.join(uploads_dir, d))]
-    
-    for upload_id in upload_ids:
-        upload_dir_path = os.path.join(uploads_dir, upload_id)
+        upload_ids = [d for d in os.listdir(uploads_dir) if os.path.isdir(os.path.join(uploads_dir, d))]
         
-        try:
-            timestamp = os.path.getctime(upload_dir_path)
-            dt_object = datetime.datetime.fromtimestamp(timestamp)
-            formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-        except Exception:
-            formatted_time = "未知时间"
+        for upload_id in upload_ids:
+            upload_dir_path = os.path.join(uploads_dir, upload_id)
+            
+            try:
+                timestamp = os.path.getctime(upload_dir_path)
+                dt_object = datetime.datetime.fromtimestamp(timestamp)
+                formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                formatted_time = "未知时间"
 
-        record = {
-            "upload_id": upload_id,
-            "timestamp": formatted_time,
-            "original_pdf": None,
-            "json_mapping": None,
-            "cmyk_pdf": None,
-            "final_pdf": None
-        }
+            record = {
+                "upload_id": upload_id,
+                "timestamp": formatted_time,
+                "original_pdf": None,
+                "json_mapping": None,
+                "cmyk_pdf": None,
+                "final_pdf": None
+            }
 
-        for filename in os.listdir(upload_dir_path):
-            file_path = os.path.join(upload_dir_path, filename)
-            if os.path.isfile(file_path):
-                if filename.endswith('_cmyk.pdf'):
-                    record["cmyk_pdf"] = filename
-                elif filename.endswith('_modern_print.pdf'):
-                    record["final_pdf"] = filename
-                elif filename.endswith('.json'):
-                    record["json_mapping"] = filename
-                elif filename.lower().endswith('.pdf') and not (filename.endswith('_cmyk.pdf') or filename.endswith('_modern_print.pdf')):
-                    record["original_pdf"] = filename
-        
-        if record["cmyk_pdf"] or record["final_pdf"]:
-            history_records.append(record)
+            for filename in os.listdir(upload_dir_path):
+                file_path = os.path.join(upload_dir_path, filename)
+                if os.path.isfile(file_path):
+                    if filename.endswith('_cmyk.pdf'):
+                        record["cmyk_pdf"] = filename
+                    elif filename.endswith('_modern_print.pdf'):
+                        record["final_pdf"] = filename
+                    elif filename.endswith('.json'):
+                        record["json_mapping"] = filename
+                    elif filename.lower().endswith('.pdf') and not (filename.endswith('_cmyk.pdf') or filename.endswith('_modern_print.pdf')):
+                        record["original_pdf"] = filename
+            
+            if record["cmyk_pdf"] or record["final_pdf"]:
+                history_records.append(record)
 
-    history_records.sort(key=lambda x: x["timestamp"], reverse=True)
-    return history_records
+        history_records.sort(key=lambda x: x["timestamp"], reverse=True)
+        return history_records
+    except Exception as e:
+        print(f"Error reading history data: {e}")
+        return [] # Return empty list on error
 
 # Serve Vue.js static files
 @app.route('/', defaults={'path': ''})
@@ -138,10 +143,22 @@ def download_file(upload_id, filename):
 def get_color_mapping():
     """获取默认颜色映射"""
     try:
+        # Try to open the default mapping first
         with open('default_color_mapping.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
         return jsonify(data)
+    except FileNotFoundError:
+        # If it doesn't exist, try to load the initial one
+        try:
+            with open('initial_default_color_mapping.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify(data)
+        except Exception as e:
+            print(f"FATAL: Could not read initial_default_color_mapping.json. {e}")
+            return jsonify({"error": str(e)}), 500
     except Exception as e:
+        # For other errors like JSON decoding
+        print(f"Error reading default_color_mapping.json. {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/color-mapping', methods=['POST'])
@@ -164,6 +181,46 @@ def get_original_color_mapping():
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analyze-colors', methods=['POST'])
+def analyze_colors_endpoint():
+    """Analyzes the dominant colors in an uploaded PDF file."""
+    if 'pdf_file' not in request.files:
+        return jsonify({"success": False, "message": "No PDF file provided."}), 400
+
+    pdf_file = request.files['pdf_file']
+    if pdf_file.filename == '':
+        return jsonify({"success": False, "message": "No selected file."}), 400
+
+    if pdf_file:
+        upload_id = str(uuid.uuid4())
+        upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], upload_id)
+        os.makedirs(upload_dir, exist_ok=True)
+
+        pdf_filename = secure_filename(pdf_file.filename)
+        pdf_path = os.path.join(upload_dir, pdf_filename)
+        pdf_file.save(pdf_path)
+
+        try:
+            # Perform the color analysis
+            unique_colors = extract_unique_colors(pdf_path)
+            
+            # The temporary file and directory will be cleaned up later by other processes
+            # or a dedicated cleanup service. For now, we leave it.
+
+            return jsonify({
+                "success": True,
+                "colors": unique_colors
+            })
+        except Exception as e:
+            # Log the exception for debugging
+            print(f"[ERROR] in color analysis for {pdf_path}: {e}")
+            return jsonify({
+                "success": False,
+                "message": f"An error occurred during color analysis: {str(e)}"
+            }), 500
+    
+    return jsonify({"success": False, "message": "Invalid file."}), 400
 
 @app.route('/api/upload-pdf', methods=['POST'])
 def upload_pdf():

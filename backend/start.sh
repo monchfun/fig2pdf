@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 激活虚拟环境
+source venv/bin/activate
+
 # 卸载旧的Gradio/FastAPI相关依赖，确保环境干净
 pip uninstall fastapi starlette uvicorn -y
 
