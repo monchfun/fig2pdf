@@ -8,62 +8,40 @@ from werkzeug.utils import secure_filename
 from process_pdf import process_pdf_files
 from pdf_color_analyzer import extract_unique_colors
 import uuid
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# Database Configuration
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
+db = SQLAlchemy(app)
+
+class UploadHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    upload_id = db.Column(db.String(36), unique=True, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.datetime.now)
+    original_pdf = db.Column(db.String(255))
+    json_mapping = db.Column(db.String(255))
+    cmyk_pdf = db.Column(db.String(255))
+    final_pdf = db.Column(db.String(255))
+
+    def to_dict(self):
+        return {
+            "upload_id": self.upload_id,
+            "timestamp": self.timestamp.strftime('%Y-%m-%d %H:%M:%S') if self.timestamp else None,
+            "original_pdf": self.original_pdf,
+            "json_mapping": self.json_mapping, # Stored as filename
+            "cmyk_pdf": self.cmyk_pdf, # Stored as filename
+            "final_pdf": self.final_pdf # Stored as filename
+        }
+
 def _get_history_data():
-    """Helper function to get history data as a list of dicts."""
-    history_records = []
-    uploads_dir = app.config['UPLOAD_FOLDER']
-
-    try:
-        if not os.path.exists(uploads_dir):
-            return []
-
-        upload_ids = [d for d in os.listdir(uploads_dir) if os.path.isdir(os.path.join(uploads_dir, d))]
-        
-        for upload_id in upload_ids:
-            upload_dir_path = os.path.join(uploads_dir, upload_id)
-            
-            try:
-                timestamp = os.path.getctime(upload_dir_path)
-                dt_object = datetime.datetime.fromtimestamp(timestamp)
-                formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-            except Exception:
-                formatted_time = "未知时间"
-
-            record = {
-                "upload_id": upload_id,
-                "timestamp": formatted_time,
-                "original_pdf": None,
-                "json_mapping": None,
-                "cmyk_pdf": None,
-                "final_pdf": None
-            }
-
-            for filename in os.listdir(upload_dir_path):
-                file_path = os.path.join(upload_dir_path, filename)
-                if os.path.isfile(file_path):
-                    if filename.endswith('_cmyk.pdf'):
-                        record["cmyk_pdf"] = filename
-                    elif filename.endswith('_modern_print.pdf'):
-                        record["final_pdf"] = filename
-                    elif filename.endswith('.json'):
-                        record["json_mapping"] = filename
-                    elif filename.lower().endswith('.pdf') and not (filename.endswith('_cmyk.pdf') or filename.endswith('_modern_print.pdf')):
-                        record["original_pdf"] = filename
-            
-            if record["cmyk_pdf"] or record["final_pdf"]:
-                history_records.append(record)
-
-        history_records.sort(key=lambda x: x["timestamp"], reverse=True)
-        return history_records
-    except Exception as e:
-        print(f"Error reading history data: {e}")
-        return [] # Return empty list on error
+    """Helper function to get history data as a list of dicts from the database."""
+    history_records = UploadHistory.query.order_by(UploadHistory.timestamp.desc()).all()
+    return [record.to_dict() for record in history_records]
 
 # Serve Vue.js static files
 @app.route('/', defaults={'path': ''})
@@ -111,6 +89,17 @@ def process_files():
                 cmyk_pdf_filename = os.path.basename(processing_result["output_cmyk_pdf"]) if processing_result.get("output_cmyk_pdf") else None
                 final_pdf_filename = os.path.basename(processing_result["output_final_pdf"]) if processing_result.get("output_final_pdf") else None
                 
+                # Save to database
+                new_history_entry = UploadHistory(
+                    upload_id=upload_id,
+                    original_pdf=pdf_filename,
+                    json_mapping=json_filename,
+                    cmyk_pdf=cmyk_pdf_filename,
+                    final_pdf=final_pdf_filename
+                )
+                db.session.add(new_history_entry)
+                db.session.commit()
+
                 # Get updated history
                 updated_history = _get_history_data()
 
@@ -264,6 +253,7 @@ def clear_history():
     """清空所有上传和处理的历史记录"""
     uploads_dir = app.config['UPLOAD_FOLDER']
     try:
+        # Clear file system uploads
         for item in os.listdir(uploads_dir):
             item_path = os.path.join(uploads_dir, item)
             if os.path.isdir(item_path):
@@ -273,10 +263,16 @@ def clear_history():
         
         os.makedirs(uploads_dir, exist_ok=True)
 
+        # Clear database history
+        db.session.query(UploadHistory).delete()
+        db.session.commit()
+
         return jsonify({"success": True, "message": "历史记录已清空"})
     except Exception as e:
         return jsonify({"success": False, "message": f"清空历史记录失败: {str(e)}"})
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     port = int(os.environ.get("PORT", 5001))
     app.run(host='0.0.0.0', port=port)
