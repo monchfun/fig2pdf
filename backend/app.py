@@ -19,6 +19,9 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
 db = SQLAlchemy(app)
 
+with app.app_context():
+    db.create_all()
+
 class UploadHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     upload_id = db.Column(db.String(36), unique=True, nullable=False)
