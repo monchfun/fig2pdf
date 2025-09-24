@@ -123,24 +123,4 @@
 
 2.  **使用 Ghostscript 进行标准化和保值处理**: 调用 Ghostscript，但通过禁用其内置的自动色彩管理引擎 (`-dUseCIEColor=false`)，来防止我们手动设置的精确CMYK值被改动。同时处理PDF的兼容性问题，最终输出保留矢量特性和精确颜色的现代化印刷PDF。
 
----
 
-## 7. Figma 插件设置
-
-本仓库包含一个 Figma 插件，用于辅助 PDF 导出流程。
-
-1.  **进入插件目录**:
-    ```bash
-    cd figma-plugin
-    ```
-
-2.  **安装依赖**:
-    ```bash
-    npm install
-    ```
-
-3.  **在 Figma 中加载插件**:
-    -   打开 Figma 桌面应用。
-    -   进入 "Plugins" > "Development" > "Import plugin from manifest..."。
-    -   选择 `figma-plugin` 目录下的 `manifest.json` 文件。
-    -   插件现在应该可以在 Figma 中运行了。
