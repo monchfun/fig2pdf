@@ -17,6 +17,7 @@ const convertTextToCurves = ref(false);
 const errorMessage = ref('');
 const history = ref([]);
 const isHistoryOpen = ref(false);
+const isSidebarOpen = ref(true);
 
 const previewMappings = computed(() => {
   return uniqueColors.value.map(color => ({
@@ -160,114 +161,195 @@ const clearHistory = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 text-gray-800 p-4 sm:p-8">
-    <div class="max-w-6xl mx-auto">
-      <header class="text-center mb-8 relative">
-        <h1 class="text-4xl font-bold text-gray-900">PDF 颜色转换工作台</h1>
-        <p class="text-lg text-gray-600 mt-2">一个更现代、更直观的颜色转换流程</p>
-        <div class="absolute top-0 right-0">
-          <Button variant="outline" @click="isHistoryOpen = true">查看历史记录</Button>
-        </div>
-      </header>
+  <div class="h-screen bg-white flex flex-col">
+    <!-- Header -->
+    <header class="h-16 border-b border-gray-200 flex items-center justify-between px-6 bg-white">
+      <div class="flex items-center space-x-4">
+        <h1 class="text-xl font-semibold text-gray-900">PDF 颜色转换工作台</h1>
+        <span class="text-sm text-gray-500">Figma PDF 到印刷级 CMYK 转换器</span>
+      </div>
+      <div class="flex items-center space-x-3">
+        <Button variant="outline" size="sm" @click="isHistoryOpen = true">
+          历史记录
+        </Button>
+        <Button v-if="appState !== 'initial'" variant="outline" size="sm" @click="resetApp">
+          新建文件
+        </Button>
+        <Button
+          v-if="appState !== 'initial'"
+          variant="outline"
+          size="sm"
+          @click="isSidebarOpen = !isSidebarOpen"
+          class="lg:hidden"
+        >
+          {{ isSidebarOpen ? '隐藏工具栏' : '显示工具栏' }}
+        </Button>
+      </div>
+    </header>
 
-      <!-- Initial State: File Upload -->
-      <div v-if="appState === 'initial'" class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
-        <FileUpload @fileSelected="handleFileSelect" />
+    <!-- Main Content Area -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- Initial State: Full screen upload -->
+      <div v-if="appState === 'initial'" class="flex-1 flex items-center justify-center bg-gray-50">
+        <div class="max-w-lg w-full mx-auto">
+          <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">开始转换 PDF</h2>
+            <p class="text-gray-600">上传您的 PDF 文件以开始颜色转换流程</p>
+          </div>
+          <FileUpload @fileSelected="handleFileSelect" />
+        </div>
       </div>
 
       <!-- Analyzing State -->
-      <div v-if="appState === 'analyzing'" class="text-center p-8">
-        <p class="text-xl font-semibold animate-pulse">正在分析 PDF 中的主要颜色，请稍候...</p>
-        <p class="text-gray-500 mt-2">{{ selectedFile?.name }}</p>
+      <div v-if="appState === 'analyzing'" class="flex-1 flex items-center justify-center bg-gray-50">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p class="text-xl font-semibold text-gray-900">正在分析 PDF 颜色</p>
+          <p class="text-gray-500 mt-2">{{ selectedFile?.name }}</p>
+        </div>
       </div>
 
-      <!-- Main Workspace -->
-      <div v-if="appState === 'file_ready' || appState === 'processing' || appState === 'done'" class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        <!-- Left Panel: PDF Preview -->
-        <div class="md:col-span-2 bg-white p-6 rounded-lg shadow-md">
-          <h2 class="text-2xl font-bold mb-4 border-b pb-2">PDF 预览</h2>
-          <div v-if="selectedFile">
-            <PdfPreview 
+      <!-- Workspace Layout -->
+      <div v-if="appState === 'file_ready' || appState === 'processing' || appState === 'done'" class="flex-1 flex">
+
+        <!-- Left Panel: PDF Preview (Full screen) -->
+        <div class="flex-1 flex flex-col bg-gray-50">
+          <div class="h-12 border-b border-gray-200 px-4 flex items-center justify-between bg-white">
+            <h2 class="font-medium text-gray-900">PDF 预览</h2>
+            <div class="text-sm text-gray-500">
+              {{ selectedFile?.name }}
+            </div>
+          </div>
+          <div class="flex-1 overflow-hidden">
+            <PdfPreview
               :key="selectedFile.name"
-              :pdf-file="selectedFile" 
-              :show-color-preview="appState === 'file_ready'" 
+              :pdf-file="selectedFile"
+              :show-color-preview="appState === 'file_ready'"
               :color-mappings="previewMappings"
+              class="h-full w-full"
             />
           </div>
         </div>
 
-        <!-- Right Panel: Configuration & Actions -->
-        <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-md flex flex-col">
-          
-          <!-- State: File Ready (Configuration) -->
-          <div v-if="appState === 'file_ready'" class="flex flex-col h-full">
-            <div class="flex-grow">
-              <ColorMapping 
+        <!-- Right Panel: Tools & Configuration -->
+        <div
+          v-show="isSidebarOpen"
+          class="w-80 lg:w-96 bg-white border-l border-gray-200 flex flex-col fixed lg:relative right-0 top-0 h-full z-20 lg:z-auto shadow-lg lg:shadow-none"
+        >
+
+          <!-- File Ready State -->
+          <div v-if="appState === 'file_ready'" class="flex-1 flex flex-col min-h-0">
+            <div class="p-4 border-b border-gray-200">
+              <h3 class="font-medium text-gray-900 mb-1">颜色映射配置</h3>
+              <p class="text-sm text-gray-500">调整 RGB 到 CMYK 的颜色映射</p>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+              <ColorMapping
                 v-if="uniqueColors.length > 0"
                 :colors="uniqueColors"
                 @update:colors="uniqueColors = $event"
               />
-              <p v-else class="text-gray-500 text-center pt-10">未在此 PDF 中提取到可识别的颜色。</p>
+              <div v-else class="p-8 text-center text-gray-500">
+                <p>未在此 PDF 中提取到可识别的颜色</p>
+              </div>
             </div>
-            <div class="mt-8 space-y-4">
+
+            <div class="p-4 border-t border-gray-200 space-y-3">
               <div class="flex items-center space-x-2">
-                <input type="checkbox" id="convertText" v-model="convertTextToCurves" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
-                <label for="convertText" class="text-sm font-medium text-gray-700">文字转曲线 (用于印刷)</label>
+                <input
+                  type="checkbox"
+                  id="convertText"
+                  v-model="convertTextToCurves"
+                  class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                />
+                <label for="convertText" class="text-sm font-medium text-gray-700">
+                  文字转曲线 (用于印刷)
+                </label>
               </div>
-              <Button @click="handleProcessRequest" class="w-full text-lg py-6">开始转换</Button>
-              <Button @click="resetApp" variant="outline" class="w-full">处理另一个文件</Button>
+              <Button @click="handleProcessRequest" class="w-full">
+                开始转换
+              </Button>
             </div>
           </div>
 
-          <!-- State: Processing -->
-          <div v-if="appState === 'processing'" class="flex flex-col items-center justify-center h-full text-center">
-            <p class="text-2xl font-semibold animate-pulse">正在处理文件...</p>
-            <p class="text-gray-500 mt-4">这可能需要一些时间，请不要关闭页面。</p>
+          <!-- Processing State -->
+          <div v-if="appState === 'processing'" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-6"></div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">正在处理文件</h3>
+            <p class="text-gray-500 text-sm">这可能需要一些时间，请不要关闭页面</p>
           </div>
 
-          <!-- State: Done -->
-          <div v-if="appState === 'done'" class="flex flex-col h-full">
-            <div class="flex-grow">
-              <h2 class="text-2xl font-bold mb-4 text-green-600">处理完成！</h2>
-              <p class="text-gray-600 mb-6">您可以下载转换后的文件了。</p>
-              <div class="space-y-4">
-                <a v-if="finalResult.cmyk_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.cmyk_pdf_filename}`" download>
-                  <Button class="w-full" variant="secondary">下载 CMYK 替换版</Button>
-                </a>
-                <a v-if="finalResult.final_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.final_pdf_filename}`" download>
-                  <Button class="w-full" variant="secondary">下载印刷最终版</Button>
-                </a>
+          <!-- Done State -->
+          <div v-if="appState === 'done'" class="flex-1 flex flex-col">
+            <div class="p-4 border-b border-gray-200">
+              <h3 class="font-medium text-gray-900 mb-1">处理完成</h3>
+              <p class="text-sm text-gray-500">下载转换后的文件</p>
+            </div>
+
+            <div class="flex-1 p-4">
+              <div class="space-y-3">
+                <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div class="flex items-center space-x-2 mb-2">
+                    <div class="h-2 w-2 bg-green-600 rounded-full"></div>
+                    <span class="text-sm font-medium text-green-900">转换成功</span>
+                  </div>
+                  <p class="text-sm text-green-700">您的 PDF 已成功转换为 CMYK 格式</p>
+                </div>
+
+                <div class="space-y-2">
+                  <a v-if="finalResult.cmyk_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.cmyk_pdf_filename}`" download>
+                    <Button class="w-full justify-start" variant="outline">
+                      <span class="flex-1 text-left">下载 CMYK 替换版</span>
+                    </Button>
+                  </a>
+                  <a v-if="finalResult.final_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.final_pdf_filename}`" download>
+                    <Button class="w-full justify-start" variant="outline">
+                      <span class="flex-1 text-left">下载印刷最终版</span>
+                    </Button>
+                  </a>
+                </div>
               </div>
             </div>
-            <div class="mt-8 space-y-4">
-              <Button @click="resetApp" class="w-full text-lg py-6">处理另一个文件</Button>
+
+            <div class="p-4 border-t border-gray-200">
+              <Button @click="resetApp" variant="outline" class="w-full">
+                处理另一个文件
+              </Button>
             </div>
           </div>
 
         </div>
+
+        <!-- Mobile Sidebar Overlay -->
+        <div
+          v-if="isSidebarOpen && appState !== 'initial'"
+          class="fixed inset-0 bg-black bg-opacity-50 z-10 lg:hidden"
+          @click="isSidebarOpen = false"
+        ></div>
       </div>
 
-      <!-- History Modal -->
-      <AlertDialog :open="isHistoryOpen" @update:open="isHistoryOpen = $event">
-        <AlertDialogContent class="max-w-4xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>处理历史记录</AlertDialogTitle>
-          </AlertDialogHeader>
-          <div class="max-h-[60vh] overflow-y-auto p-2">
-            <HistoryTable 
-              :history="history"
-              :onFetchHistory="fetchHistory"
-              :onClearHistory="clearHistory"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>关闭</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
     </div>
+
+    <!-- History Modal -->
+    <AlertDialog :open="isHistoryOpen" @update:open="isHistoryOpen = $event">
+      <AlertDialogContent class="max-w-4xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>处理历史记录</AlertDialogTitle>
+        </AlertDialogHeader>
+        <div class="max-h-[60vh] overflow-y-auto p-2">
+          <HistoryTable
+            :history="history"
+            :onFetchHistory="fetchHistory"
+            :onClearHistory="clearHistory"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>关闭</AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
   </div>
   <Toaster />
 </template>
