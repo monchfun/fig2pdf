@@ -3,6 +3,7 @@ werkzeug>=2.0.0
 Flask
 gunicorn
 Flask-CORS
+Flask-SQLAlchemy
 Pillow
 scikit-learn
 numpy
