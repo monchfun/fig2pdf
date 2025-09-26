@@ -12,11 +12,12 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Database Configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
+db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'project.db')
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 db = SQLAlchemy(app)
 
 with app.app_context():

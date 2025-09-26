@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 // --- App State ---
 const appState = ref('initial'); // initial, analyzing, file_ready, processing, done
 const selectedFile = ref(null);
+const processedPdfFile = ref(null); // Holds the processed CMYK PDF as a File object
 const uniqueColors = ref([]); // Holds the array of {hex, rgb, cmyk, count}
 const finalResult = ref(null);
 const convertTextToCurves = ref(false);
@@ -18,6 +19,7 @@ const errorMessage = ref('');
 const history = ref([]);
 const isHistoryOpen = ref(false);
 const isSidebarOpen = ref(true);
+const viewMode = ref('single'); // 'single' or 'compare'
 
 const previewMappings = computed(() => {
   return uniqueColors.value.map(color => ({
@@ -65,10 +67,17 @@ const handleFileSelect = async (file) => {
 const resetApp = () => {
   appState.value = 'initial';
   selectedFile.value = null;
+  processedPdfFile.value = null;
   uniqueColors.value = [];
   errorMessage.value = '';
   finalResult.value = null;
   convertTextToCurves.value = false;
+  viewMode.value = 'single';
+};
+
+const getCmykPdfFile = () => {
+  // This function now just returns the File object
+  return processedPdfFile.value;
 };
 
 const handleProcessRequest = async () => {
@@ -79,6 +88,7 @@ const handleProcessRequest = async () => {
 
   appState.value = 'processing';
   finalResult.value = null;
+  processedPdfFile.value = null;
 
   try {
     // Prepare the color mapping JSON from the current state
@@ -110,6 +120,16 @@ const handleProcessRequest = async () => {
     if (result.success) {
       finalResult.value = result;
       history.value = result.history; // Update history from response
+
+      // Fetch the processed CMYK PDF and store it as a File object
+      if (result.cmyk_pdf_filename) {
+        const pdfUrl = `/download/${result.upload_id}/${result.cmyk_pdf_filename}`;
+        const pdfResponse = await fetch(pdfUrl);
+        if (!pdfResponse.ok) throw new Error('无法下载处理后的PDF文件。');
+        const pdfBlob = await pdfResponse.blob();
+        processedPdfFile.value = new File([pdfBlob], result.cmyk_pdf_filename, { type: 'application/pdf' });
+      }
+
       appState.value = 'done';
       toast({ title: '成功', description: '文件处理完成！' });
     } else {
@@ -213,20 +233,24 @@ const clearHistory = async () => {
       <!-- Workspace Layout -->
       <div v-if="appState === 'file_ready' || appState === 'processing' || appState === 'done'" class="flex-1 flex">
 
-        <!-- Left Panel: PDF Preview (Full screen) -->
+          <!-- Left Panel: PDF Preview (Full screen) -->
         <div class="flex-1 flex flex-col bg-gray-50">
           <div class="h-12 border-b border-gray-200 px-4 flex items-center justify-between bg-white">
-            <h2 class="font-medium text-gray-900">PDF 预览</h2>
+            <h2 class="font-medium text-gray-900">
+              <span v-if="appState === 'done'">CMYK 预览</span>
+              <span v-else>PDF 预览</span>
+            </h2>
             <div class="text-sm text-gray-500">
-              {{ selectedFile?.name }}
+              <span v-if="appState === 'done' && getCmykPdfFile()">{{ getCmykPdfFile()?.name }}</span>
+              <span v-else>{{ selectedFile?.name }}</span>
             </div>
           </div>
           <div class="flex-1 overflow-hidden">
             <PdfPreview
-              :key="selectedFile.name"
-              :pdf-file="selectedFile"
+              :key="appState === 'done' ? getCmykPdfFile()?.name : selectedFile?.name"
+              :pdf-file="appState === 'done' ? getCmykPdfFile() : selectedFile"
               :show-color-preview="appState === 'file_ready'"
-              :color-mappings="previewMappings"
+              :color-mappings="appState === 'file_ready' ? previewMappings : []"
               class="h-full w-full"
             />
           </div>

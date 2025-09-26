@@ -38,14 +38,15 @@
 
 - **状态**: ✅ **完成并已验证**
 - **目的**: 提供一个用户友好的Web界面，允许用户上传PDF文件和颜色映射JSON文件，自动处理并下载转换后的印刷级PDF。
-- **技术栈**: `Python Flask`, `HTML/CSS/JavaScript`, `Tailwind CSS`
-- **核心文件**: `app.py`, `process_pdf.py`, `templates/*.html`
+- **技术栈**: `Python Flask`, `Vue.js 3`, `Vite`, `Tailwind CSS`, `shadcn-vue`
+- **核心文件**: `app.py`, `process_pdf.py`, `vue-app/src/`
 - **关键技术点**:
-    1.  **后端**: 使用 Flask 框架构建 RESTful API，支持文件上传、下载和处理历史记录等功能。
-    2.  **前端**: 使用 Alpine.js 和 Tailwind CSS 构建了响应式的单页应用界面，提供了流畅的、无需页面刷新的用户体验。
-    3.  **文件处理**: 集成核心的 `process_pdf.py` 脚本，并使用 UUID 为每次上传创建独立会话目录，确保文件隔离与安全。
-    4.  **交互式编辑**: 提供了交互式的颜色映射编辑器，支持实时修改、添加、删除颜色，并同步更新 JSON 文本视图。
-    5.  **历史记录**: 实现了文件处理历史功能。处理完成后，列表会自动更新，方便用户随时追溯和下载过往文件。
+    1.  **后端**: 使用 Flask 框架构建 RESTful API，支持文件上传、下载和处理历史记录等功能。集成Flask-SQLAlchemy管理数据库。
+    2.  **前端**: 使用 Vue.js 3 (Composition API) + Vite 构建现代化单页应用，采用全屏布局设计。
+    3.  **CMYK预览功能**: 实现转换后的CMYK PDF实时预览功能，支持单视图和对比视图切换。
+    4.  **智能颜色分析**: 自动从PDF中提取RGB颜色并提供默认CMYK转换建议。
+    5.  **实时颜色预览**: CMYK值调整时提供实时颜色预览反馈，提升用户体验。
+    6.  **历史记录**: 实现了完整的文件处理历史功能，支持SQLite数据库持久化存储。
 
 ---
 
