@@ -16,6 +16,25 @@ const props = defineProps({
 
 const emit = defineEmits(['update:colors']);
 
+// CMYK to RGB conversion function
+const cmykToRgb = (c, m, y, k) => {
+  c = c / 100;
+  m = m / 100;
+  y = y / 100;
+  k = k / 100;
+
+  const r = Math.round(255 * (1 - c) * (1 - k));
+  const g = Math.round(255 * (1 - m) * (1 - k));
+  const b = Math.round(255 * (1 - y) * (1 - k));
+
+  return [r, g, b];
+};
+
+const cmykToHex = (c, m, y, k) => {
+  const [r, g, b] = cmykToRgb(c, m, y, k);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
 const handleCmykChange = (index, cmykIndex, value) => {
   console.log('handleCmykChange called:', { index, cmykIndex, value });
   const newColors = JSON.parse(JSON.stringify(props.colors));
@@ -69,6 +88,22 @@ const previewMappings = computed(() => {
 
         <!-- CMYK Inputs -->
         <div class="space-y-2">
+          <div class="flex items-center space-x-3 mb-2">
+            <div class="flex-shrink-0">
+              <div
+                class="w-8 h-8 rounded-lg border border-gray-300 shadow-sm"
+                :style="{ backgroundColor: cmykToHex(color.cmyk[0], color.cmyk[1], color.cmyk[2], color.cmyk[3]) }"
+                :title="`CMYK预览: (${color.cmyk.join(', ')})`"
+              ></div>
+            </div>
+            <div class="flex-1">
+              <div class="text-xs text-gray-500">CMYK预览</div>
+              <div class="text-xs font-mono text-gray-600">
+                RGB: {{ cmykToRgb(color.cmyk[0], color.cmyk[1], color.cmyk[2], color.cmyk[3]).join(', ') }}
+              </div>
+            </div>
+          </div>
+
           <div class="grid grid-cols-4 gap-2">
             <div class="text-center">
               <label class="text-xs font-medium text-gray-600 block mb-1">C</label>

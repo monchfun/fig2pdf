@@ -19,3 +19,8 @@ package-lock.json
 # Application specific
 uploads/
 static/dist/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3

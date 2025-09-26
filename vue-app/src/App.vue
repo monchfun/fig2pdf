@@ -297,17 +297,21 @@ const clearHistory = async () => {
                   <p class="text-sm text-green-700">您的 PDF 已成功转换为 CMYK 格式</p>
                 </div>
 
-                <div class="space-y-2">
-                  <a v-if="finalResult.cmyk_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.cmyk_pdf_filename}`" download>
-                    <Button class="w-full justify-start" variant="outline">
-                      <span class="flex-1 text-left">下载 CMYK 替换版</span>
-                    </Button>
-                  </a>
-                  <a v-if="finalResult.final_pdf_filename" :href="`/download/${finalResult.upload_id}/${finalResult.final_pdf_filename}`" download>
-                    <Button class="w-full justify-start" variant="outline">
-                      <span class="flex-1 text-left">下载印刷最终版</span>
-                    </Button>
-                  </a>
+                <div class="space-y-1.5">
+                  <div v-if="finalResult.cmyk_pdf_filename">
+                    <a :href="`/download/${finalResult.upload_id}/${finalResult.cmyk_pdf_filename}`" download>
+                      <Button class="w-full justify-start" variant="outline">
+                        <span class="flex-1 text-left">下载 CMYK 替换版</span>
+                      </Button>
+                    </a>
+                  </div>
+                  <div v-if="finalResult.final_pdf_filename">
+                    <a :href="`/download/${finalResult.upload_id}/${finalResult.final_pdf_filename}`" download>
+                      <Button class="w-full justify-start">
+                        <span class="flex-1 text-left">下载印刷最终版</span>
+                      </Button>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
